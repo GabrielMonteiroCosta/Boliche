@@ -1,0 +1,58 @@
+internal class Program
+{
+    private static void Main(string[] args)
+    {
+
+        DateTime horaAtual = DateTime.Now;
+        Console.WriteLine("|-----------------------|\n|Bem-Vindo ao Gaboliche!|\n|-----------------------|");
+        Console.WriteLine("Veja a nossa tabela de preços (Durante o dia):");
+        Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
+        Console.WriteLine("\n|-------------------------|" +
+            "\n|45 Minutos = R$20,00     |" +
+            "\n|1H e 10 Minutos = R$35,00|" +
+            "\n|2 Horas = R$ R$50,00     |");
+        Console.WriteLine("|-------------------------|");
+
+        Console.WriteLine("Veja a nossa tabela de preços (Após as 18 horas):");
+        Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
+        Console.WriteLine("\n|-------------------------|" +
+            "\n|45 Minutos = R$30,00     |" +
+            "\n|1H e 10 Minutos = R$45,00|" +
+            "\n|2 Horas = R$ R$65,00     |");
+        Console.WriteLine("|-------------------------|");
+
+        decimal precoDia45m = 20.00m;
+        decimal precoDia110h = 35.00m;
+        decimal precoDia2h = 50.00m;
+
+        decimal precoNoite45m = 30.00m;
+        decimal precoNoite110h = 45.00m;
+        decimal precoNoite2h = 65.00m;
+
+        decimal precoAtual45;
+        decimal precoAtual110;
+        decimal precoAtual2;
+        string precoAtualInfo;
+
+        if (horaAtual.TimeOfDay < new TimeSpan (18, 0, 0)) // Essa linha analisa o horaAtual do dia e verifica que é menor que 18:00 com o TimeSpan, se for menor:
+        {
+            precoAtualInfo = "Preço do Dia!";
+            precoAtual45 = precoDia45m;
+            precoAtual110 = precoDia110h;
+            precoAtual2 = precoDia2h;
+        }
+        else
+        {
+            precoAtualInfo = "Preço da Noite!";
+            precoAtual45 = precoNoite45m;
+            precoAtual110 = precoNoite110h;
+            precoAtual2 = precoNoite2h;
+        }
+
+        Console.WriteLine($"\nEscolha uma das opções o preço atual é do {precoAtualInfo}");
+        Console.WriteLine("" +
+            "\nPreço de 45 Minutos: (1)" +
+            "\nPreço de 1 e 10 Min: (2)" +
+            "\nPreço das 2 Horas  : (3)");
+    }
+}
