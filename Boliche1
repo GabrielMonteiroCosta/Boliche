@@ -1,0 +1,156 @@
+using System.Data.SqlClient;
+
+internal class Program
+{
+    const string connectString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
+    private static void Main(string[] args)
+    {
+        List<Cliente> clientes = new();
+        tabelaPreco();
+        validaParticipantes();
+        CadastrarCliente(clientes);
+    }
+    static void tabelaPreco()
+    {
+        DateTime horaAtual = DateTime.Now;
+        Console.WriteLine("\n|-----------------------|\n|Bem-Vindo ao Gaboliche!|\n|-----------------------|");
+        Console.WriteLine("\n***Veja a nossa tabela de preços de Segunda até Quinta-Feira***");
+        Console.WriteLine("\n|-----------------------------|" +
+            "\n|12h00 até às 17h00 = R$100,00|" +
+            "\n|17h00 até às 22h00 = R$120,00|");
+        Console.WriteLine("|-----------------------------|");
+        Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
+
+        Console.WriteLine("\n***Veja a nossa tabela de preços de Sexta à Domingo (Vésperas e Feriados)***");
+        Console.WriteLine("\n|-----------------------------|" +
+            "\n|12h00 até às 17h00 = R$110,00|" +
+            "\n|17h00 até às 22h00 = R$130,00|");
+        Console.WriteLine("|-----------------------------|");
+        Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
+    }
+    static void validaParticipantes()
+    {
+        Console.Write("\nPor favor insira quantas pessoas vão participar (MÁX 6 PESSOAS):");
+        while (true)
+        {
+            if (int.TryParse(Console.ReadLine(), out int participantes))
+            {
+                if (participantes <= 5 && participantes > 0)
+                {
+                    Console.WriteLine($"Separando equipamento para {participantes} pessoas, deseja fazer o nosso cadastro Gaboliche-Fã?\n" +
+                        "Usuários cadastrados no nosso sistema ganham 15% de desconto na sexta vez que vem aqui!");
+                    break;
+                }
+                if (participantes > 6)
+                {
+                    Console.WriteLine("Mais do que 6(Seis) pessoas não são suportadas, o limite são 6 Pistas!");
+                    Console.WriteLine($"Você quer entrar com 6 pessoas, lembrando que os outros {participantes - 6} participantes entraram em uma fila de espera. ");
+                    Console.WriteLine("Continuar com 6 participantes(S/N): ");
+                    string continuaComFila = Console.ReadLine();
+                    if ("s".Equals(continuaComFila, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("Continuando com 6 pessoas!");
+                        continue;
+                    }
+                    if ("n".Equals(continuaComFila, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.Write("Ok, muito obrigado pela compreensão!");
+                        return;
+                    }
+
+
+                }
+                if (participantes == 6)
+                {
+                    Console.WriteLine("Separando equipamento para 6 pessoas, 5% de desconto aplicado para cada um no valor final!");
+                    break;
+                }
+            }
+        }
+    }
+    static void CadastrarCliente(List<Cliente> clientes)
+    {
+        Cliente cliente = new();
+        try
+        {
+            cliente.CPF = CreateCPF();
+        }
+        catch
+        {
+            return;
+        }
+        Console.Write("Insira o Nome do Player: ");
+        cliente.nome = Console.ReadLine();
+        Console.Write("Insira o telefone do cliente (DDD): ");
+        cliente.telefone = Console.ReadLine();
+        cliente.historico += 1;
+
+        using (SqlConnection connect = new(connectString))
+        {
+            connect.Open();
+            string query = @" 
+                insert into Clientes
+                (
+                	Nome, CPF, Status, Telefone, Historico
+                )
+                values 
+                (
+                	@nome, @CPF, 1, @telefone, @historico
+                )";
+            using (SqlCommand command = new(query, connect))
+            {
+                command.Parameters.AddWithValue("@nome", cliente.nome);
+                command.Parameters.AddWithValue("@CPF", cliente.CPF);
+                command.Parameters.AddWithValue("@historico", cliente.historico);
+                command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(cliente.telefone) ? DBNull.Value : cliente.telefone);
+
+                command.ExecuteNonQuery();
+                Console.WriteLine("Usuário cadastrado com sucesso.");
+                connect.Close();
+            }
+        }
+    }
+    public static string? CreateCPF()
+    {
+        static string? ValidaCPF()
+        {
+            Console.WriteLine("Digite o CPF: ");
+            string? validar = Console.ReadLine();
+            if (!Equals(validar?.Length, 11))
+            {
+                Console.WriteLine("Deu ruim");
+                ValidaCPF();
+            }
+            return validar;
+        }
+
+        string? cpf = ValidaCPF();
+        using (SqlConnection connect = new(connectString))
+        {
+            connect.Open();
+            using (SqlCommand command = connect.CreateCommand())
+            {
+                command.CommandText = $"Select count(CPF) from Clientes where CPF = @CPF";
+                command.Parameters.AddWithValue("CPF", string.IsNullOrEmpty(cpf) ? DBNull.Value : cpf);
+                var obj = (int)command.ExecuteScalar();
+                connect.Close();
+                if (obj > 0)
+                {
+                    throw new Exception("Já tem");
+                }
+                return cpf;
+            }
+        }
+    }
+
+
+    public class Cliente
+    {
+        public int id { get; set; }
+        public string? nome { get; set; }
+        public string CPF { get; set; }
+        public string? telefone { get; set; }
+        public int status { get; set; }
+        public int historico { get; set; }
+    }
+}
