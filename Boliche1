@@ -1,14 +1,19 @@
+
+using System;
 using System.Data.SqlClient;
+using System.Runtime.CompilerServices;
 
 internal class Program
 {
-    const string connectString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
+    const string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
     private static void Main(string[] args)
     {
         List<Cliente> clientes = new();
+        List<Produto> produtos = new();
         tabelaPreco();
-        validaParticipantes();
-        CadastrarCliente(clientes);
+        CreateProduct(produtos);
+        //validaParticipantes();
+        //CadastrarCliente(clientes);
     }
     static void tabelaPreco()
     {
@@ -80,33 +85,94 @@ internal class Program
             return;
         }
         Console.Write("Insira o Nome do Player: ");
-        cliente.nome = Console.ReadLine();
+        cliente.Nome = Console.ReadLine();
         Console.Write("Insira o telefone do cliente (DDD): ");
-        cliente.telefone = Console.ReadLine();
-        cliente.historico += 1;
+        cliente.Telefone = Console.ReadLine();
+        cliente.Historico += 1;
 
-        using (SqlConnection connect = new(connectString))
+        using (SqlConnection connect = new(connectionString))
         {
             connect.Open();
-            string query = @" 
+            int proximoId;
+            using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM Clientes", connect))
+            {
+                proximoId = (int)cmdNextId.ExecuteScalar();
+            }
+            string query = @"
                 insert into Clientes
                 (
-                	Nome, CPF, Status, Telefone, Historico
+                	Id, Nome, CPF, Status, Telefone, Historico
                 )
                 values 
                 (
-                	@nome, @CPF, 1, @telefone, @historico
+                	@id, @nome, @CPF, 1, @telefone, @historico
                 )";
             using (SqlCommand command = new(query, connect))
             {
-                command.Parameters.AddWithValue("@nome", cliente.nome);
+                command.Parameters.AddWithValue("@id", proximoId);
+                command.Parameters.AddWithValue("@nome", cliente.Nome);
                 command.Parameters.AddWithValue("@CPF", cliente.CPF);
-                command.Parameters.AddWithValue("@historico", cliente.historico);
-                command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(cliente.telefone) ? DBNull.Value : cliente.telefone);
+                command.Parameters.AddWithValue("@historico", cliente.Historico);
+                command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(cliente.Telefone) ? DBNull.Value : cliente.Telefone);
 
                 command.ExecuteNonQuery();
                 Console.WriteLine("Usuário cadastrado com sucesso.");
                 connect.Close();
+            }
+        }
+    }
+    static void CreateProduct(List<Produto> produtos)
+    {
+        Produto produto = new Produto();
+        Console.Write("Insira a descrição do Produto: ");
+        produto.Descricao = Console.ReadLine();
+        Console.WriteLine("Insira a Quantidade que há em estoque desse produto: ");
+        if(int.TryParse(Console.ReadLine(), out int qtdAtual))
+        {
+            produto.Quantidade = qtdAtual;
+        }
+        else
+        {
+            Console.WriteLine("Insira uma quantidade válida para o produto!");
+        }
+        Console.WriteLine("Insira o Preço de Venda desse produto: ");
+        if (double.TryParse(Console.ReadLine(), out double precoVenda))
+        {
+            produto.PrecoVenda = precoVenda;
+        }
+        else
+        {
+            Console.WriteLine("Insira um Preço em R$ para o produto!");
+        }
+
+        using(SqlConnection connection = new(connectionString))
+        {
+            connection.Open();
+            int proximoId;
+            using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(idItem), 0) + 1 FROM Produtos", connection))
+            {
+                proximoId = (int)cmdNextId.ExecuteScalar();
+            }
+            string query = @"insert into Produtos
+                (
+                	idItem, descricao, quantidade, precoVenda
+                )
+                values 
+                ( 
+                    @idItem, @descricao, @quantidade, @precoVenda
+                );";
+            using(SqlCommand command = new SqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@idItem", proximoId);
+                command.Parameters.AddWithValue("@descricao", produto.Descricao);
+                command.Parameters.AddWithValue("@quantidade", produto.Quantidade);
+                command.Parameters.AddWithValue("@precoVenda", produto.PrecoVenda);
+
+                command.ExecuteNonQuery();
+                Console.WriteLine("Produto cadastrado com sucesso.");
+                connection.Close();
+
+
             }
         }
     }
@@ -118,14 +184,14 @@ internal class Program
             string? validar = Console.ReadLine();
             if (!Equals(validar?.Length, 11))
             {
-                Console.WriteLine("Deu ruim");
+                Console.WriteLine("Não foi possível registrar esse CPF, parece que há menos números do que deveria!");
                 ValidaCPF();
             }
             return validar;
         }
 
         string? cpf = ValidaCPF();
-        using (SqlConnection connect = new(connectString))
+        using (SqlConnection connect = new(connectionString))
         {
             connect.Open();
             using (SqlCommand command = connect.CreateCommand())
@@ -136,7 +202,7 @@ internal class Program
                 connect.Close();
                 if (obj > 0)
                 {
-                    throw new Exception("Já tem");
+                    throw new Exception("Esse número de CPF já existe cadastrado no Gaboliche!");
                 }
                 return cpf;
             }
@@ -146,11 +212,23 @@ internal class Program
 
     public class Cliente
     {
-        public int id { get; set; }
-        public string? nome { get; set; }
+        public int Id { get; set; }
+        public string? Nome { get; set; }
         public string CPF { get; set; }
-        public string? telefone { get; set; }
-        public int status { get; set; }
-        public int historico { get; set; }
+        public string? Telefone { get; set; }
+        public int Status { get; set; }
+        public int Historico { get; set; }
+    }
+
+    public class Produto
+    {
+        public int IdItem { get; set; }
+        public string Descricao { get; set; }
+        public int Quantidade { get; set; }
+        public double PrecoVenda { get; set; }
+    }
+    public class Cardapio : Produto
+    {
+        public string Categoria { get; set; }
     }
 }
