@@ -1,39 +1,42 @@
 
+using Newtonsoft.Json;
 using System;
 using System.Data.SqlClient;
+using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 
 internal class Program
 {
-    const string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
+    const string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
     private static void Main(string[] args)
     {
-        List<Cliente> clientes = new();
+        List<Users> clientes = new();
         List<Produto> produtos = new();
-        tabelaPreco();
-        CreateProduct(produtos);
-        //validaParticipantes();
-        //CadastrarCliente(clientes);
-    }
-    static void tabelaPreco()
-    {
-        DateTime horaAtual = DateTime.Now;
-        Console.WriteLine("\n|-----------------------|\n|Bem-Vindo ao Gaboliche!|\n|-----------------------|");
-        Console.WriteLine("\n***Veja a nossa tabela de preços de Segunda até Quinta-Feira***");
-        Console.WriteLine("\n|-----------------------------|" +
-            "\n|12h00 até às 17h00 = R$100,00|" +
-            "\n|17h00 até às 22h00 = R$120,00|");
-        Console.WriteLine("|-----------------------------|");
-        Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
 
-        Console.WriteLine("\n***Veja a nossa tabela de preços de Sexta à Domingo (Vésperas e Feriados)***");
-        Console.WriteLine("\n|-----------------------------|" +
-            "\n|12h00 até às 17h00 = R$110,00|" +
-            "\n|17h00 até às 22h00 = R$130,00|");
-        Console.WriteLine("|-----------------------------|");
-        Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
+        while (true)
+        {
+            Console.WriteLine("Bem-Vindo ao Gaboliche!" +
+                "\n(1) Coloque as pessoas na pista para jogar" +
+                "\n(2) Cadastrar, Atualizar ou Inativar Usuários" +
+                "\n(3) Cadastrar, Atualizar ou Inativar Produtos" +
+                "\n(4) Listar Usuários, Cardápio, Promoções e a Fila de Espera" +
+                "\n(0) Fechar e Sair.");
+
+            Console.Write("\nSelecione uma das opções: ");
+            string option = Console.ReadLine();
+
+            switch (option)
+            {
+                case "1": break;
+                case "2": SelectUserOption(); break;
+                case "3": break;
+                case "4": PrintLists(); break;
+                case "0": Console.WriteLine("Encerrando o programa..."); return;
+                default: Console.WriteLine("Insira uma opção válida!"); break;
+            }
+        }
     }
-    static void validaParticipantes()
+    static void CheckMembers()
     {
         Console.Write("\nPor favor insira quantas pessoas vão participar (MÁX 6 PESSOAS):");
         while (true)
@@ -73,61 +76,13 @@ internal class Program
             }
         }
     }
-    static void CadastrarCliente(List<Cliente> clientes)
-    {
-        Cliente cliente = new();
-        try
-        {
-            cliente.CPF = CreateCPF();
-        }
-        catch
-        {
-            return;
-        }
-        Console.Write("Insira o Nome do Player: ");
-        cliente.Nome = Console.ReadLine();
-        Console.Write("Insira o telefone do cliente (DDD): ");
-        cliente.Telefone = Console.ReadLine();
-        cliente.Historico += 1;
-
-        using (SqlConnection connect = new(connectionString))
-        {
-            connect.Open();
-            int proximoId;
-            using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM Clientes", connect))
-            {
-                proximoId = (int)cmdNextId.ExecuteScalar();
-            }
-            string query = @"
-                insert into Clientes
-                (
-                	Id, Nome, CPF, Status, Telefone, Historico
-                )
-                values 
-                (
-                	@id, @nome, @CPF, 1, @telefone, @historico
-                )";
-            using (SqlCommand command = new(query, connect))
-            {
-                command.Parameters.AddWithValue("@id", proximoId);
-                command.Parameters.AddWithValue("@nome", cliente.Nome);
-                command.Parameters.AddWithValue("@CPF", cliente.CPF);
-                command.Parameters.AddWithValue("@historico", cliente.Historico);
-                command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(cliente.Telefone) ? DBNull.Value : cliente.Telefone);
-
-                command.ExecuteNonQuery();
-                Console.WriteLine("Usuário cadastrado com sucesso.");
-                connect.Close();
-            }
-        }
-    }
-    static void CreateProduct(List<Produto> produtos)
+    static void CreateProduct()
     {
         Produto produto = new Produto();
         Console.Write("Insira a descrição do Produto: ");
         produto.Descricao = Console.ReadLine();
         Console.WriteLine("Insira a Quantidade que há em estoque desse produto: ");
-        if(int.TryParse(Console.ReadLine(), out int qtdAtual))
+        if (int.TryParse(Console.ReadLine(), out int qtdAtual))
         {
             produto.Quantidade = qtdAtual;
         }
@@ -145,7 +100,7 @@ internal class Program
             Console.WriteLine("Insira um Preço em R$ para o produto!");
         }
 
-        using(SqlConnection connection = new(connectionString))
+        using (SqlConnection connection = new(connectionString))
         {
             connection.Open();
             int proximoId;
@@ -161,7 +116,7 @@ internal class Program
                 ( 
                     @idItem, @descricao, @quantidade, @precoVenda
                 );";
-            using(SqlCommand command = new SqlCommand(query, connection))
+            using (SqlCommand command = new SqlCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@idItem", proximoId);
                 command.Parameters.AddWithValue("@descricao", produto.Descricao);
@@ -178,57 +133,365 @@ internal class Program
     }
     public static string? CreateCPF()
     {
-        static string? ValidaCPF()
+        static string? CheckCPF()
         {
             Console.WriteLine("Digite o CPF: ");
             string? validar = Console.ReadLine();
             if (!Equals(validar?.Length, 11))
             {
                 Console.WriteLine("Não foi possível registrar esse CPF, parece que há menos números do que deveria!");
-                ValidaCPF();
+                CheckCPF();
             }
             return validar;
         }
 
-        string? cpf = ValidaCPF();
+        string? cpf = CheckCPF();
+        using SqlConnection connect = new(connectionString);
+        connect.Open();
+        using SqlCommand command = connect.CreateCommand();
+        command.CommandText = $"Select count(CPF) from Clientes where CPF = @CPF";
+        command.Parameters.AddWithValue("CPF", string.IsNullOrEmpty(cpf) ? DBNull.Value : cpf);
+        var obj = (int)command.ExecuteScalar();
+        connect.Close();
+        if (obj > 0)
+        {
+            throw new Exception("Esse número de CPF já existe cadastrado no Gaboliche!");
+        }
+        return cpf;
+    }
+    public static string? CreatePhone()
+    {
+        static string? CheckPhone()
+        {
+            Console.Write("Digite o número de Telefone: ");
+            string? validar = Console.ReadLine();
+            if (!Equals(validar?.Length, 11))
+            {
+                Console.WriteLine("Não foi possível registrar esse número de telefone, não há 11 digitos nele.");
+                CheckPhone();
+            }
+            return validar;
+        }
+        string? phone = CheckPhone();
         using (SqlConnection connect = new(connectionString))
         {
             connect.Open();
             using (SqlCommand command = connect.CreateCommand())
             {
-                command.CommandText = $"Select count(CPF) from Clientes where CPF = @CPF";
-                command.Parameters.AddWithValue("CPF", string.IsNullOrEmpty(cpf) ? DBNull.Value : cpf);
+                command.CommandText = $"Select count(telefone) from Clientes where telefone = @telefone";
+                command.Parameters.AddWithValue("telefone", string.IsNullOrEmpty(phone) ? DBNull.Value : phone);
                 var obj = (int)command.ExecuteScalar();
                 connect.Close();
                 if (obj > 0)
                 {
                     throw new Exception("Esse número de CPF já existe cadastrado no Gaboliche!");
                 }
-                return cpf;
+                return phone;
+            }
+        }
+
+    }
+    public static void ListUser()
+    {
+        List<Users> listUsers = new();
+        using (SqlConnection connection = new(connectionString))
+        {
+            connection.Open();
+            string query = @"select
+                        id, nome, CPF, status, telefone, historico from Clientes";
+            using (SqlCommand command = new(query, connection))
+            {
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Users users = new Users();
+                        users.Id = Convert.ToInt32(reader["id"]);
+                        users.Nome = reader["nome"].ToString();
+                        users.CPF = reader["CPF"].ToString();
+                        users.Telefone = reader["telefone"].ToString();
+                        users.Status = Convert.ToBoolean(reader["status"]);
+                        users.Historico = Convert.ToInt32(reader["historico"]);
+                        listUsers.Add(users);
+                    }
+                    foreach (var users in listUsers)
+                    {
+                        Console.WriteLine(users);
+                    }
+                    connection.Close();
+                }
             }
         }
     }
+    public static void PrintLists()
+    {
+        while (true)
+        {
+            Console.WriteLine("" +
+                "\n(1) Listar Produtos" +
+                "\n(2) Listar Usuários" +
+                "\n(3) Listar Promoções" +
+                "\n(4) Listar Fila de Espera" +
+                "\n(5) Listar Preços/Horários" +
+                "\n(0) <- Voltar ao menu anterior");
 
+            Console.Write("Selecione uma das opções acima: ");
 
-    public class Cliente
+            string option = Console.ReadLine();
+            switch (option)
+            {
+                case "1": ListProduct(); break;
+                case "2": ListUser(); break;
+                case "3": ListPromotions(); break;
+                case "4": ListQueue(); break;
+                case "5": PriceTable(); break;
+                case "0": return;
+                default: Console.WriteLine("Por favor digite uma opção válida!"); break;
+            }
+
+            static void ListProduct()
+            {
+                List<Produto> listProduct = new();
+                using (SqlConnection connection = new(connectionString))
+                {
+                    connection.Open();
+                    string query = @"select
+                        idItem,
+                        descricao,
+                        quantidade,
+                        precoVenda
+                        from Produtos";
+                    using (SqlCommand command = new(query, connection))
+                    {
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                Produto productString = new();
+                                productString.IdItem = Convert.ToInt32(reader["idItem"]);
+                                productString.Descricao = reader["descricao"].ToString();
+                                productString.Quantidade = Convert.ToInt32(reader["quantidade"]);
+                                productString.PrecoVenda = Convert.ToDouble(reader["precoVenda"]);
+                                listProduct.Add(productString);
+                            }
+                            foreach (var products in listProduct)
+                            {
+                                Console.WriteLine(products);
+                            }
+                            connection.Close();
+                        }
+                    }
+                }
+            }
+            static void ListPromotions()
+            {
+                Console.WriteLine("\n********** Promoções disponíveis atualmente **********\n");
+                Console.WriteLine("  > Fidelidade: Após a 5° vez no Gaboliche, ganhe 15% de Desconto na sua próxima vinda!");
+                Console.WriteLine("  > Cupom Galera da Pesada: 10% de Desconto para pista com 6 pessoas.");
+                Console.WriteLine("  > Cupom Pais e Filhos: 5% de Desconto.");
+
+            }
+            static void ListQueue()
+            {
+                Console.WriteLine("Sem fila.");
+            }
+            static void PriceTable()
+            {
+                DateTime horaAtual = DateTime.Now;
+                Console.WriteLine("\n|-----------------------|\n|Bem-Vindo ao Gaboliche!|\n|-----------------------|");
+                Console.WriteLine("\n***Veja a nossa tabela de preços de Segunda até Quinta-Feira***");
+                Console.WriteLine("\n|-----------------------------|" +
+                    "\n|12h00 até às 17h00 = R$100,00|" +
+                    "\n|17h00 até às 22h00 = R$120,00|");
+                Console.WriteLine("|-----------------------------|");
+                Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
+
+                Console.WriteLine("\n***Veja a nossa tabela de preços de Sexta à Domingo (Vésperas e Feriados)***");
+                Console.WriteLine("\n|-----------------------------|" +
+                    "\n|12h00 até às 17h00 = R$110,00|" +
+                    "\n|17h00 até às 22h00 = R$130,00|");
+                Console.WriteLine("|-----------------------------|");
+                Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
+            }
+        }
+    }
+    static void SelectUserOption()
+    {
+        while (true)
+        {
+            Console.WriteLine("\nÁrea Geral do Usuário:\n" +
+                "\n(1) Cadastrar Usuário" +
+                "\n(2) Atualizar Usuário" +
+                "\n(3) Deletar Usuário");
+            Console.Write("\nSelecione uma das opções acima: ");
+            string option = Console.ReadLine();
+            switch (option)
+            {
+                case "1": CreateUser(); break;
+                case "2": UpdateUser(); break;
+                case "3": DeleteUser(); break;
+            }
+        }
+        static void CreateUser()
+        {
+            Users users = new();
+            try
+            {
+                users.CPF = CreateCPF();
+            }
+            catch
+            {
+                return;
+            }
+            Console.Write("Insira o Nome do Player: ");
+            users.Nome = Console.ReadLine();
+            Console.Write("Insira o telefone do cliente (DDD): ");
+            users.Telefone = Console.ReadLine();
+            users.Historico += 1;
+
+            using (SqlConnection connect = new(connectionString))
+            {
+                connect.Open();
+                int proximoId;
+                using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM Clientes", connect))
+                {
+                    proximoId = (int)cmdNextId.ExecuteScalar();
+                }
+                string query = @"
+                insert into Clientes
+                (
+                	Id, Nome, CPF, Status, Telefone, Historico
+                )
+                values 
+                (
+                	@id, @nome, @CPF, 1, @telefone, @historico
+                )";
+                using (SqlCommand command = new(query, connect))
+                {
+                    command.Parameters.AddWithValue("@id", proximoId);
+                    command.Parameters.AddWithValue("@nome", users.Nome);
+                    command.Parameters.AddWithValue("@CPF", users.CPF);
+                    command.Parameters.AddWithValue("@historico", users.Historico);
+                    command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(users.Telefone) ? DBNull.Value : users.Telefone);
+
+                    command.ExecuteNonQuery();
+                    Console.WriteLine("Usuário cadastrado com sucesso.");
+                    connect.Close();
+                }
+            }
+        }
+        static void UpdateUser()
+        {
+            ListUser();
+            Users user = null;
+            Console.Write("Insira o ID do cliente que você deseja alterar: ");
+            if (int.TryParse(Console.ReadLine(), out int catchId))
+            {
+                string query = @"select 
+	                id,
+                    nome,
+	                CPF,
+	                status,
+	                telefone, 
+	                historico
+                    from Clientes where id = @id";
+                using (SqlConnection connection = new(connectionString))
+                {
+                    connection.Open();
+                    using (SqlCommand cmd = new(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@id", catchId); //Atribuindo o ID digitado ao @id no db.
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                user = new Users
+                                {
+                                    Id = Convert.ToInt32(reader["id"]),
+                                    Nome = reader["nome"].ToString(),
+                                    Status = Convert.ToBoolean(reader["status"]),
+                                    Telefone = reader["telefone"].ToString(),
+                                    CPF = reader["CPF"].ToString()
+                                };
+                            }
+                        }
+                    }
+                    if (user is not null)
+                    {
+                        Console.WriteLine($"O Nome atual do cliente é: [{user.Nome}]");
+                        Console.Write("\nDigite o Nome do Usuário: ");
+                        string newName = Console.ReadLine();
+                        Console.WriteLine($"\nO Telefone atual do cliente é: [{user.Telefone}]");
+                        string newPhone = CreatePhone();
+                        Console.WriteLine($"\nO CPF atual do cliente é: [{user.CPF}]");
+                        string newCPF = CreateCPF();
+
+                        query = "UPDATE Clientes SET nome = @nome, telefone = @telefone, CPF = @CPF WHERE id = @id";
+                        using (SqlCommand command = new(query, connection))
+                        {
+                            command.Parameters.AddWithValue("@id", catchId);
+                            command.Parameters.AddWithValue("@nome", newName);
+                            command.Parameters.AddWithValue("@telefone", newPhone);
+                            command.Parameters.AddWithValue("@CPF", newCPF);
+
+                            int update = command.ExecuteNonQuery();
+                            Console.WriteLine(update > 0 ? "\n*** Usuário atualizado com sucesso. ***" : "Erro ao deletar o usuário.");
+                            connection.Close();
+                            return;
+                        }
+                    }
+                }
+            }
+            Console.WriteLine("Usuário digitado inválido.");
+        }
+        static void DeleteUser()
+        {
+            ListUser();
+            Console.Write("Insira o ID do cliente que você deseja DELETAR: ");
+        }
+    } //Todo Finalizar o DeleteUser
+    static void SelectProductOption()
+    {
+        Console.WriteLine("Área Geral dos Produtos" +
+            "(1) Cadastrar novo produto" +
+            "(2) Atualizar um produto" +
+            "(3) Deletar um produto");
+    }
+    public class Users
     {
         public int Id { get; set; }
         public string? Nome { get; set; }
         public string CPF { get; set; }
-        public string? Telefone { get; set; }
-        public int Status { get; set; }
+        public string Telefone { get; set; }
+        public bool Status { get; set; }
         public int Historico { get; set; }
+        public override string ToString()
+        {
+            return $"\n*************************" +
+                $"\nID: {Id}" +
+                $"\nNome: {Nome}" +
+                $"\nCPF: {CPF}" +
+                $"\nTelefone: {Telefone}" +
+                $"\nStatus: {(Status ? "Ativo" : "Inativo")}" +
+                $"\nHistórico: {Historico}" +
+                $"\n*************************";
+        }
     }
-
     public class Produto
     {
         public int IdItem { get; set; }
         public string Descricao { get; set; }
         public int Quantidade { get; set; }
         public double PrecoVenda { get; set; }
-    }
-    public class Cardapio : Produto
-    {
-        public string Categoria { get; set; }
+
+        public override string ToString()
+        {
+            return $"\n*************************" +
+                $"\nCódigo do produto: {IdItem}" +
+                $"\nDescrição do Produto: {Descricao}" +
+                $"\nQuantidade: {Quantidade} UN" +
+                $"\nPreço de Venda: R${PrecoVenda}" +
+                $"\n*************************";
+        }
     }
 }
