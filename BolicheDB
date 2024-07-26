@@ -1,0 +1,65 @@
+use Boliche1
+drop table Clientes
+create table Clientes
+(
+	id int,
+	nome varchar(100) not null,
+	CPF varchar (11) not null,
+	status bit not null,
+	telefone varchar(20) null,
+	historico int null
+)
+
+ 
+declare @id int = (select isnull(max(id)+1,1) from Clientes)
+declare @nome varchar(100)
+declare @CPF varchar (11)
+declare @status bit
+declare @telefone varchar(20)
+declare @historico int
+ 
+insert into Clientes
+(
+	nome,
+	CPF,
+	status,
+	telefone, 
+	id,
+	historico
+)
+values 
+(
+	@nome, @CPF, @status, @telefone, @id, @historico
+);
+select * from Clientes
+select * from Produtos
+delete from Clientes where Nome = 'Gabs'
+ 
+ 
+create table Produtos 
+(
+	idItem int not null,
+	descricao varchar(100) not null,
+	quantidade int not null,
+	precoVenda numeric not null
+);
+ 
+declare @idItem int = (select isnull(max(idItem)+1,1) from Produtos)
+declare @descricao varchar(100)
+declare @quantidade int
+declare @precoVenda numeric
+ 
+insert into Produtos
+(
+	idItem,
+	Descricao,
+	Quantidade,
+	PrecoVenda
+)
+values 
+(
+	@IdItem,
+	@descricao,
+	@quantidade,
+	@precoVenda
+);
