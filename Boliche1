@@ -1,9 +1,6 @@
-
-using Newtonsoft.Json;
-using System;
+using Spectre.Console;
 using System.Data.SqlClient;
-using System.Reflection.PortableExecutable;
-using System.Runtime.CompilerServices;
+
 
 internal class Program
 {
@@ -11,7 +8,7 @@ internal class Program
     private static void Main(string[] args)
     {
         List<Users> clientes = new();
-        List<Produto> produtos = new();
+        List<Product> produtos = new();
 
         while (true)
         {
@@ -27,9 +24,9 @@ internal class Program
 
             switch (option)
             {
-                case "1": break;
+                case "1": CheckMembers(); CheckTime(); ; break;
                 case "2": SelectUserOption(); break;
-                case "3": break;
+                case "3": SelectProductOption(); break;
                 case "4": PrintLists(); break;
                 case "0": Console.WriteLine("Encerrando o programa..."); return;
                 default: Console.WriteLine("Insira uma opção válida!"); break;
@@ -65,8 +62,6 @@ internal class Program
                         Console.Write("Ok, muito obrigado pela compreensão!");
                         return;
                     }
-
-
                 }
                 if (participantes == 6)
                 {
@@ -76,60 +71,21 @@ internal class Program
             }
         }
     }
-    static void CreateProduct()
+    static void CheckTime()
     {
-        Produto produto = new Produto();
-        Console.Write("Insira a descrição do Produto: ");
-        produto.Descricao = Console.ReadLine();
-        Console.WriteLine("Insira a Quantidade que há em estoque desse produto: ");
-        if (int.TryParse(Console.ReadLine(), out int qtdAtual))
+        var day = AnsiConsole.Prompt(
+        new SelectionPrompt<string>()
+        .Title("Qual é o dia da semana? ")
+        .PageSize(10)
+        .MoreChoicesText("[grey](Selecione o dia: )[/]")
+        .AddChoices(new[]
         {
-            produto.Quantidade = qtdAtual;
-        }
-        else
-        {
-            Console.WriteLine("Insira uma quantidade válida para o produto!");
-        }
-        Console.WriteLine("Insira o Preço de Venda desse produto: ");
-        if (double.TryParse(Console.ReadLine(), out double precoVenda))
-        {
-            produto.PrecoVenda = precoVenda;
-        }
-        else
-        {
-            Console.WriteLine("Insira um Preço em R$ para o produto!");
-        }
+             "Segunda-Feira","Terça-Feira","Quarta-Feira","Quinta-Feira","Sexta-Feira","Sábado","Domingo"
+        }));
 
-        using (SqlConnection connection = new(connectionString))
-        {
-            connection.Open();
-            int proximoId;
-            using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(idItem), 0) + 1 FROM Produtos", connection))
-            {
-                proximoId = (int)cmdNextId.ExecuteScalar();
-            }
-            string query = @"insert into Produtos
-                (
-                	idItem, descricao, quantidade, precoVenda
-                )
-                values 
-                ( 
-                    @idItem, @descricao, @quantidade, @precoVenda
-                );";
-            using (SqlCommand command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@idItem", proximoId);
-                command.Parameters.AddWithValue("@descricao", produto.Descricao);
-                command.Parameters.AddWithValue("@quantidade", produto.Quantidade);
-                command.Parameters.AddWithValue("@precoVenda", produto.PrecoVenda);
+        DateTime horaAtual = DateTime.Now;
+        Console.WriteLine($"Hoje é dia [{horaAtual}] [{day}]");
 
-                command.ExecuteNonQuery();
-                Console.WriteLine("Produto cadastrado com sucesso.");
-                connection.Close();
-
-
-            }
-        }
     }
     public static string? CreateCPF()
     {
@@ -223,6 +179,40 @@ internal class Program
             }
         }
     }
+    public static void ListProduct()
+    {
+        List<Product> listProduct = new();
+        using (SqlConnection connection = new(connectionString))
+        {
+            connection.Open();
+            string query = @"select
+                        idItem,
+                        descricao,
+                        quantidade,
+                        precoVenda
+                        from Produtos";
+            using (SqlCommand command = new(query, connection))
+            {
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Product productString = new();
+                        productString.IdItem = Convert.ToInt32(reader["idItem"]);
+                        productString.Descricao = reader["descricao"].ToString();
+                        productString.Quantidade = Convert.ToInt32(reader["quantidade"]);
+                        productString.PrecoVenda = Convert.ToDouble(reader["precoVenda"]);
+                        listProduct.Add(productString);
+                    }
+                    foreach (var products in listProduct)
+                    {
+                        Console.WriteLine(products);
+                    }
+                    connection.Close();
+                }
+            }
+        }
+    }
     public static void PrintLists()
     {
         while (true)
@@ -249,40 +239,6 @@ internal class Program
                 default: Console.WriteLine("Por favor digite uma opção válida!"); break;
             }
 
-            static void ListProduct()
-            {
-                List<Produto> listProduct = new();
-                using (SqlConnection connection = new(connectionString))
-                {
-                    connection.Open();
-                    string query = @"select
-                        idItem,
-                        descricao,
-                        quantidade,
-                        precoVenda
-                        from Produtos";
-                    using (SqlCommand command = new(query, connection))
-                    {
-                        using (SqlDataReader reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                Produto productString = new();
-                                productString.IdItem = Convert.ToInt32(reader["idItem"]);
-                                productString.Descricao = reader["descricao"].ToString();
-                                productString.Quantidade = Convert.ToInt32(reader["quantidade"]);
-                                productString.PrecoVenda = Convert.ToDouble(reader["precoVenda"]);
-                                listProduct.Add(productString);
-                            }
-                            foreach (var products in listProduct)
-                            {
-                                Console.WriteLine(products);
-                            }
-                            connection.Close();
-                        }
-                    }
-                }
-            }
             static void ListPromotions()
             {
                 Console.WriteLine("\n********** Promoções disponíveis atualmente **********\n");
@@ -319,17 +275,21 @@ internal class Program
     {
         while (true)
         {
-            Console.WriteLine("\nÁrea Geral do Usuário:\n" +
-                "\n(1) Cadastrar Usuário" +
-                "\n(2) Atualizar Usuário" +
-                "\n(3) Deletar Usuário");
-            Console.Write("\nSelecione uma das opções acima: ");
-            string option = Console.ReadLine();
+            var option = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+            .Title("Área Geral do Usuário: ")
+            .PageSize(10)
+            .MoreChoicesText("[grey](Selecione o dia: )[/]")
+            .AddChoices(new[]
+            {
+                 "Cadastrar Usuário", "Atualizar Usuário", "Deletar Usuário"
+            }));
+
             switch (option)
             {
-                case "1": CreateUser(); break;
-                case "2": UpdateUser(); break;
-                case "3": DeleteUser(); break;
+                case "Cadastrar Usuário": CreateUser(); break;
+                case "Atualizar Usuário": UpdateUser(); break;
+                case "Deletar Usuário": DeleteUser(); break;
             }
         }
         static void CreateUser()
@@ -450,12 +410,140 @@ internal class Program
             Console.Write("Insira o ID do cliente que você deseja DELETAR: ");
         }
     } //Todo Finalizar o DeleteUser
-    static void SelectProductOption()
+    public static void SelectProductOption()
     {
-        Console.WriteLine("Área Geral dos Produtos" +
-            "(1) Cadastrar novo produto" +
-            "(2) Atualizar um produto" +
-            "(3) Deletar um produto");
+        var option = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+            .Title("Área Geral dos Produtos: ")
+            .PageSize(10)
+            .MoreChoicesText("[grey](Selecione o produto: )[/]")
+            .AddChoices(new[]
+            {
+                 "Cadastrar Produto", "Atualizar Produto", "Inativar Produto"
+            }));
+
+        switch (option)
+        {
+            case "Cadastrar Produto": CreateProduct(); break;
+            case "Atualizar Produto": UpdateProduct(); break;
+            case "Inativar Produto": CreateProduct(); break;
+
+        }
+
+        static void CreateProduct()
+        {
+            Product produto = new Product();
+            Console.Write("Insira a descrição do Produto: ");
+            produto.Descricao = Console.ReadLine();
+            Console.WriteLine("Insira a Quantidade que há em estoque desse produto: ");
+            if (int.TryParse(Console.ReadLine(), out int qtdAtual))
+            {
+                produto.Quantidade = qtdAtual;
+            }
+            else
+            {
+                Console.WriteLine("Insira uma quantidade válida para o produto!");
+            }
+            Console.WriteLine("Insira o Preço de Venda desse produto: ");
+            if (double.TryParse(Console.ReadLine(), out double precoVenda))
+            {
+                produto.PrecoVenda = precoVenda;
+            }
+            else
+            {
+                Console.WriteLine("Insira um Preço em R$ para o produto!");
+            }
+
+            using (SqlConnection connection = new(connectionString))
+            {
+                connection.Open();
+                int proximoId;
+                using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(idItem), 0) + 1 FROM Produtos", connection))
+                {
+                    proximoId = (int)cmdNextId.ExecuteScalar();
+                }
+                string query = @"insert into Produtos
+                (
+                	idItem, descricao, quantidade, precoVenda
+                )
+                values 
+                ( 
+                    @idItem, @descricao, @quantidade, @precoVenda
+                );";
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@idItem", proximoId);
+                    command.Parameters.AddWithValue("@descricao", produto.Descricao);
+                    command.Parameters.AddWithValue("@quantidade", produto.Quantidade);
+                    command.Parameters.AddWithValue("@precoVenda", produto.PrecoVenda);
+
+                    command.ExecuteNonQuery();
+                    Console.WriteLine("Produto cadastrado com sucesso.");
+                    connection.Close();
+
+
+                }
+            }
+        }
+        static void UpdateProduct()
+        {
+            Product product = null;
+            Console.WriteLine("Selecione o produto que você deseja atualizar: ");
+            if (int.TryParse(Console.ReadLine(), out int catchId))
+            {
+                string query = @"
+                    select idItem, Descricao, Quantidade, PrecoVenda from Produtos where idItem = @idItem";
+                using (SqlConnection connection = new(connectionString))
+                {
+                    connection.Open();
+                    using (SqlCommand cmd = new(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@idItem", catchId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                product = new Product()
+                                {
+                                    IdItem = Convert.ToInt32(reader["idItem"]),
+                                    Descricao = reader["Descricao"].ToString(),
+                                    Quantidade = Convert.ToInt32(reader["Quantidade"]),
+                                    PrecoVenda = Convert.ToInt32(reader["PrecoVenda"])
+                                };
+                            }
+                        }
+                    }
+                    if (product is not null)
+                    {
+                        Console.WriteLine($"Descrição Atual do Produto: {product.Descricao}");
+                        Console.WriteLine("Insira a nova descrição do produto: ");
+                        string newDescription = Console.ReadLine();
+
+                        Console.WriteLine($"Preço Atual do Produto: {product.PrecoVenda}");
+                        Console.WriteLine("Insira o novo Preço do produto: ");
+                        string newSellPrice = Console.ReadLine();
+
+                        Console.WriteLine($"Quantidade Atual do Produto: {product.Quantidade}");
+                        Console.WriteLine("Insira quantidade Atual do produto: ");
+                        string newAmount = Console.ReadLine();
+
+                        query = "UPDATE Produtos SET descricao = @descricao, precoVenda = @PrecoVenda, quantidade = @Quantidade WHERE id = @id";
+                        using (SqlCommand command = new(query, connection))
+                        {
+                            command.Parameters.AddWithValue("@idItem", catchId);
+                            command.Parameters.AddWithValue("@descricao", newDescription);
+                            command.Parameters.AddWithValue("@precoVenda", newSellPrice);
+                            command.Parameters.AddWithValue("@quantidade", newAmount);
+
+                            int update = command.ExecuteNonQuery();
+                            Console.WriteLine(update > 0 ? "\n*** Produto atualizado com sucesso. ***" : "Erro ao atualizar o produto.");
+                            connection.Close();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
     }
     public class Users
     {
@@ -477,7 +565,7 @@ internal class Program
                 $"\n*************************";
         }
     }
-    public class Produto
+    public class Product
     {
         public int IdItem { get; set; }
         public string Descricao { get; set; }
