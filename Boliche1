@@ -1,10 +1,10 @@
 using Spectre.Console;
 using System.Data.SqlClient;
-
+using System.Linq.Expressions;
 
 internal class Program
 {
-    const string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
+    const string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
     private static void Main(string[] args)
     {
         List<Users> clientes = new();
@@ -12,6 +12,7 @@ internal class Program
 
         while (true)
         {
+            Console.Clear();
             Console.WriteLine("Bem-Vindo ao Gaboliche!" +
                 "\n(1) Coloque as pessoas na pista para jogar" +
                 "\n(2) Cadastrar, Atualizar ou Inativar Usuários" +
@@ -282,16 +283,18 @@ internal class Program
             .MoreChoicesText("[grey](Selecione o dia: )[/]")
             .AddChoices(new[]
             {
-                 "Cadastrar Usuário", "Atualizar Usuário", "Deletar Usuário"
+                 "Cadastrar Usuário", "Atualizar Usuário", "Voltar"
             }));
 
             switch (option)
             {
                 case "Cadastrar Usuário": CreateUser(); break;
                 case "Atualizar Usuário": UpdateUser(); break;
-                case "Deletar Usuário": DeleteUser(); break;
+                case "Sair": return;
             }
+            break;
         }
+       
         static void CreateUser()
         {
             Users users = new();
@@ -376,40 +379,148 @@ internal class Program
                             }
                         }
                     }
+                    connection.Close();
                     if (user is not null)
                     {
-                        Console.WriteLine($"O Nome atual do cliente é: [{user.Nome}]");
-                        Console.Write("\nDigite o Nome do Usuário: ");
-                        string newName = Console.ReadLine();
-                        Console.WriteLine($"\nO Telefone atual do cliente é: [{user.Telefone}]");
-                        string newPhone = CreatePhone();
-                        Console.WriteLine($"\nO CPF atual do cliente é: [{user.CPF}]");
-                        string newCPF = CreateCPF();
+                        var updateClient = AnsiConsole.Prompt(
+                            new SelectionPrompt<string>()
+                            .Title("Qual o atributo que você deseja atualizar no cliente: ")
+                            .PageSize(10)
+                            .MoreChoicesText("[grey](Selecione o atributo: )[/]")
+                            .AddChoices(new[]
+                            {
+                                 "Nome","Telefone", "Status", "CPF"
+                            }));
 
-                        query = "UPDATE Clientes SET nome = @nome, telefone = @telefone, CPF = @CPF WHERE id = @id";
-                        using (SqlCommand command = new(query, connection))
+                        switch (updateClient)
                         {
-                            command.Parameters.AddWithValue("@id", catchId);
-                            command.Parameters.AddWithValue("@nome", newName);
-                            command.Parameters.AddWithValue("@telefone", newPhone);
-                            command.Parameters.AddWithValue("@CPF", newCPF);
+                            case "Nome": UpdateName(); break;
+                            case "Telefone": UpdatePhone(); break;
+                            case "Status": UpdateStatus(); break;
+                            case "CPF": UpdateCPF(); break;
 
-                            int update = command.ExecuteNonQuery();
-                            Console.WriteLine(update > 0 ? "\n*** Usuário atualizado com sucesso. ***" : "Erro ao deletar o usuário.");
-                            connection.Close();
-                            return;
+                        }
+
+                        void UpdateName()
+                        {
+                            query = "UPDATE Clientes SET nome = @nome WHERE id = @id";
+                            using (SqlCommand command = new(query, connection))
+                            {
+                                connection.Open();
+                                Console.WriteLine($"O Nome atual do cliente é: [{user.Nome}]");
+                                Console.Write("\nDigite o Nome do Usuário: ");
+                                string newName = Console.ReadLine();
+                                command.Parameters.AddWithValue("@nome", newName);
+                                int updateName = command.ExecuteNonQuery();
+                                Console.WriteLine(updateName > 0 ? "\n*** Nome do usuário atualizado com sucesso. ***" : "Erro ao atualizar o nome.");
+                                connection.Close();
+                            }
+                        }
+                        void UpdatePhone()
+                        {
+                            query = "UPDATE Clientes SET telefone = @telefone WHERE id = @id";
+                            using (SqlCommand command = new(query, connection))
+                            {
+                                connection.Open();
+                                Console.WriteLine($"\nO Telefone atual do cliente é: [{user.Telefone}]");
+                                string newPhone = CreatePhone();
+                                command.Parameters.AddWithValue("@telefone", newPhone);
+                                object updatePhone = command.ExecuteScalar();
+                                connection.Close();
+                            }
+                        }
+                        void UpdateStatus()
+                        {
+                            query = "UPDATE Clientes SET status = @status WHERE id = @id";
+                            using (SqlCommand command = new(query, connection))
+                            {
+                                connection.Open();
+
+                                var optionUser = AnsiConsole.Prompt(
+                                    new SelectionPrompt<string>()
+                                    .Title("Alteração de Status, deseja:")
+                                    .PageSize(10)
+                                    .MoreChoicesText("[grey](Selecione a alteração: )[/]")
+                                    .AddChoices(new[]
+                                    {
+                                        "Manter", "[green]Ativo[/]", "[red]Inativo[/]"
+                                    })
+                                );
+
+                                if (optionUser == "Manter")
+                                {
+                                    Console.WriteLine($"Mantendo o Status: {user.Status}");
+                                }
+                                else if (optionUser == "Ativo")
+                                {
+                                    if (user.Status)
+                                    {
+                                        Console.WriteLine("Usuário já está ativo!");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("Usuário ativado com sucesso!");
+                                        user.Status = true;
+                                    }
+                                }
+                                else if (optionUser == "Inativo")
+                                {
+                                    if (!user.Status)
+                                    {
+                                        Console.WriteLine("Usuário já está inativo!");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("Usuário inativado com sucesso!");
+                                        user.Status = false;
+                                    }
+                                }
+
+                                // Atualizando o status no banco de dados
+                                command.Parameters.AddWithValue("@id", user.Id);
+                                command.Parameters.AddWithValue("@status", user.Status);
+                                int updateStatus = command.ExecuteNonQuery();
+
+                                if (updateStatus > 0)
+                                {
+                                    Console.WriteLine("Chegou aqui!");
+                                    //Finalizar o painel de inativação
+                                    var panel = new Panel("Status atualizado no banco de dados com sucesso.");
+                                    panel.Header = new PanelHeader("Status no Banco de Dados");
+                                    // Sets the border
+                                    panel.Border = BoxBorder.Rounded;
+                                    panel.Padding = new Padding(2, 2, 2, 2);
+                                    // Sets the expand property
+                                    panel.Expand = true;
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Falha ao atualizar o status no banco de dados.");
+                                }
+
+                                connection.Close();
+                            }
+                        }
+                        void UpdateCPF()
+                        {
+                            query = "UPDATE Clientes SET CPF = @CPF WHERE id = @id";
+                            using (SqlCommand command = new(query, connection))
+                            {
+                                connection.Open();
+                                Console.WriteLine($"\nO CPF atual do cliente é: [{user.CPF}]");
+                                string newCPF = CreateCPF();
+                                command.Parameters.AddWithValue("@CPF", newCPF);
+                                int updateCPF = command.ExecuteNonQuery();
+                                Console.WriteLine(updateCPF > 0 ? "\n*** CPF do usuário atualizado com sucesso. ***" : "Erro ao atualizar o CPF do usuário.");
+                                connection.Close();
+                            }
+
                         }
                     }
                 }
             }
-            Console.WriteLine("Usuário digitado inválido.");
         }
-        static void DeleteUser()
-        {
-            ListUser();
-            Console.Write("Insira o ID do cliente que você deseja DELETAR: ");
-        }
-    } //Todo Finalizar o DeleteUser
+    }
     public static void SelectProductOption()
     {
         var option = AnsiConsole.Prompt(
