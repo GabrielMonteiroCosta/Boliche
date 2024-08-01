@@ -1,4 +1,4 @@
-use Boliche1
+use Boliche
 drop table Clientes
 create table Clientes
 (
@@ -33,22 +33,25 @@ values
 );
 select * from Clientes
 select * from Produtos
-delete from Clientes where Nome = 'Gabs'
+delete from Produtos where idItem = '1'
  
- 
+drop table Produtos
 create table Produtos 
 (
 	idItem int not null,
 	descricao varchar(100) not null,
 	quantidade int not null,
-	precoVenda numeric not null
+	precoVenda smallmoney not null,
+	status bit not null
 );
  
 declare @idItem int = (select isnull(max(idItem)+1,1) from Produtos)
-declare @descricao varchar(100)
+declare @descricao varchar(100) 
 declare @quantidade int
-declare @precoVenda numeric
- 
+declare @precoVenda smallmoney
+
+delete from Produtos
+
 insert into Produtos
 (
 	idItem,
