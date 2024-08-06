@@ -1,14 +1,23 @@
 using Spectre.Console;
+using System.ComponentModel.Design;
 using System.Data.SqlClient;
 using System.Linq.Expressions;
+using System.Collections;
+using System.Net.Quic;
+using static Program;
+using System.Collections.Generic;
+using System;
 
 internal class Program
 {
-    const string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
+    const string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
     private static void Main(string[] args)
     {
         List<Users> clientes = new();
         List<Product> products = new();
+        List<Fila> fila = new();
+        List<int> pista = new List<int>();
+
 
         while (true)
         {
@@ -16,7 +25,8 @@ internal class Program
                 "\n(1) Coloque as pessoas na pista para jogar" +
                 "\n(2) Cadastrar, Atualizar ou Ativar/Inativar Usuários" +
                 "\n(3) Cadastrar, Atualizar ou Ativar/Inativar Produtos" +
-                "\n(4) Listar Usuários, Cardápio, Promoções e a Fila de Espera" +
+                "\n(4) Listar Usuários, Promoções e a Fila de Espera" +
+                "\n(5) Visualizar Cardápio" +
                 "\n(0) Fechar e Sair.");
 
             Console.Write("\nSelecione uma das opções: ");
@@ -24,53 +34,183 @@ internal class Program
 
             switch (option)
             {
-                case "1": CheckMembers(); CheckTime(); ; break;
+                case "1": CheckMembers(pista); CheckTime(); ; break;
                 case "2": SelectUserOption(); break;
                 case "3": SelectProductOption(); break;
                 case "4": PrintLists(); break;
+                case "5": Menu(); break;
                 case "0": Console.WriteLine("Encerrando o programa..."); return;
                 default: Console.WriteLine("Insira uma opção válida!"); break;
             }
         }
     }
-    static void CheckMembers()
+    static void Menu()
     {
-        Console.Write("\nPor favor insira quantas pessoas vão participar (MÁX 6 PESSOAS):");
+        List<Product> listProduct = new();
+        using (SqlConnection connection = new(connectionString))
+        {
+            connection.Open();
+            string query = @"select
+                        idItem,
+                        descricao,
+                        status,
+                        quantidade,
+                        precoVenda
+                        from Produtos";
+            using (SqlCommand command = new(query, connection))
+            {
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Product productString = new();
+                        productString.IdItem = Convert.ToInt32(reader["idItem"]);
+                        productString.Descricao = reader["descricao"].ToString();
+                        productString.Status = Convert.ToBoolean(reader["Status"]);
+                        productString.Quantidade = Convert.ToInt32(reader["quantidade"]);
+                        productString.PrecoVenda = Convert.ToDouble(reader["precoVenda"]);
+                        listProduct.Add(productString);
+                    }
+                    var panel = new Panel(new Text(""));
+
+                    panel.Header = new PanelHeader("Cardápio");
+                    panel.Border = BoxBorder.Square;
+                    panel.Padding = new Padding(2, 2, 2, 2);
+                    panel.Expand = true;
+
+                    foreach (var product in listProduct)
+                    {
+                        //panel(product.Descricao + "\n");
+                        Console.WriteLine(product.Descricao + " R$" + product.PrecoVenda);
+                    }
+                    AnsiConsole.Render(panel);
+                    connection.Close();
+                }
+            }
+        }
+
+    }
+    static void CheckMembers(List<int> pista)
+    {
+        Console.WriteLine("Olá seja bem-vindo, quantas pessoas irão participar: ");
         while (true)
         {
             if (int.TryParse(Console.ReadLine(), out int participantes))
             {
-                if (participantes <= 5 && participantes > 0)
+                static void DiscountByPeople(int participantes)
                 {
-                    Console.WriteLine($"Separando equipamento para {participantes} pessoas, deseja fazer o nosso cadastro Gaboliche-Fã?\n" +
-                        "Usuários cadastrados no nosso sistema ganham 15% de desconto na sexta vez que vem aqui!");
-                    break;
-                }
-                if (participantes > 6)
-                {
-                    Console.WriteLine("Mais do que 6(Seis) pessoas não são suportadas, o limite são 6 Pistas!");
-                    Console.WriteLine($"Você quer entrar com 6 pessoas, lembrando que os outros {participantes - 6} participantes entraram em uma fila de espera. ");
-                    Console.WriteLine("Continuar com 6 participantes(S/N): ");
-                    string continuaComFila = Console.ReadLine();
-                    if ("s".Equals(continuaComFila, StringComparison.OrdinalIgnoreCase))
+
+                    if (participantes <= 5 && participantes > 0)
                     {
-                        Console.WriteLine("Continuando com 6 pessoas!");
-                        continue;
+
+                        Console.WriteLine($"Separando equipamento para {participantes} pessoas, deseja fazer o nosso cadastro Gaboliche-Fã?\n" +
+                            "Usuários cadastrados no nosso sistema ganham 15% de desconto na sexta vez que vem aqui!");
                     }
-                    if ("n".Equals(continuaComFila, StringComparison.OrdinalIgnoreCase))
+                    if (participantes > 6)
                     {
-                        Console.Write("Ok, muito obrigado pela compreensão!");
-                        return;
+                        Console.WriteLine("Mais do que 6(Seis) pessoas não são suportadas, o limite são 6 Pistas!");
+                        Console.WriteLine($"Você quer entrar com 6 pessoas, lembrando que os outros {participantes - 6} participantes entraram em uma fila de espera. ");
+                        Console.WriteLine("Continuar com 6 participantes(S/N): ");
+                        string continuaComFila = Console.ReadLine();
+                        if ("s".Equals(continuaComFila, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.WriteLine("Continuando com 6 pessoas!");
+                        }
+                        if ("n".Equals(continuaComFila, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.Write("Ok, muito obrigado pela compreensão!");
+                            return;
+                        }
+                    }
+                    if (participantes == 6)
+                    {
+                        Console.WriteLine("Separando equipamento para 6 pessoas, 10% de desconto aplicado para cada um no valor final!");
                     }
                 }
-                if (participantes == 6)
+                DiscountByPeople(participantes);
+                Console.WriteLine("Preciso fazer o cadastro de pelo menos 1 participante, você já tem o cadastro ou precisa criar: ");
+                var option = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                .Title("Área Geral do Usuário: ")
+                .PageSize(10)
+                .MoreChoicesText("[grey](Selecione o dia: )[/]")
+                .AddChoices(new[]
                 {
-                    Console.WriteLine("Separando equipamento para 6 pessoas, 5% de desconto aplicado para cada um no valor final!");
-                    break;
+                     "Cadastrar Usuário", "Já tenho cadastro", "Voltar"
+                }));
+
+                switch (option)
+                {
+                    case "Cadastrar Usuário":
+                        CreateUser();
+                        break;
+                    case "Já tenho cadastro":
+                        ListUser();
+                        Users user = null;
+                        Console.Write("Insira o ID do cliente que você deseja alterar: ");
+                        if (int.TryParse(Console.ReadLine(), out int catchId))
+                        {
+                            string query = @"select 
+	                            id,
+                                nome,
+	                            CPF,
+	                            status,
+	                            telefone, 
+	                            historico
+                                from Clientes where id = @id";
+                            using (SqlConnection connect = new(connectionString))
+                            {
+                                connect.Open();
+                                using (SqlCommand cmd = new(query, connect))
+                                {
+                                    cmd.Parameters.AddWithValue("@id", catchId);
+                                    using (SqlDataReader reader = cmd.ExecuteReader())
+                                    {
+                                        if (reader.Read())
+                                        {
+                                            user = new Users
+                                            {
+                                                Id = Convert.ToInt32(reader["id"]),
+                                                Nome = reader["nome"].ToString(),
+                                                Status = Convert.ToBoolean(reader["status"]),
+                                                Telefone = reader["telefone"].ToString(),
+                                                CPF = reader["CPF"].ToString()
+                                            };
+                                        }
+                                    }
+                                }
+                                if (pista.Count < 6)
+                                {
+
+                                    Console.WriteLine($"Inserindo o cliente {user.Nome} à pista!");
+                                    pista.Add(+1);
+                                    int quantidade = pista.Count();
+                                    Console.WriteLine(quantidade);
+                                    string newQuery = @"Insert into Pista (quantidadePista) values (@quantidadePista)";
+                                    using (SqlCommand cmd = new(newQuery, connect))
+                                    {
+                                        cmd.Parameters.AddWithValue("@quantidadePista", quantidade);
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                }
+                                if (pista.Count > 6)
+                                {
+                                    int proximoId;
+                                    using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM idFila", connect))
+                                    {
+                                        proximoId = (int)cmdNextId.ExecuteScalar();
+                                    }
+                                }
+                                connect.Close();
+                            }
+                        }
+                        break;
                 }
+                break;
             }
         }
     }
+
     static void CheckTime()
     {
         var day = AnsiConsole.Prompt(
@@ -96,7 +236,7 @@ internal class Program
             if (!Equals(validar?.Length, 11))
             {
                 Console.WriteLine("Não foi possível registrar esse CPF, parece que há menos números do que deveria!");
-                CheckCPF();
+                return CheckCPF();
             }
             return validar;
         }
@@ -124,7 +264,7 @@ internal class Program
             if (!Equals(validar?.Length, 11))
             {
                 Console.WriteLine("Não foi possível registrar esse número de telefone, não há 11 digitos nele.");
-                CheckPhone();
+                return CheckPhone();
             }
             return validar;
         }
@@ -225,6 +365,7 @@ internal class Program
                 "\n(3) Listar Promoções" +
                 "\n(4) Listar Fila de Espera" +
                 "\n(5) Listar Preços/Horários" +
+                "\n(6) Cardápio" +
                 "\n(0) <- Voltar ao menu anterior");
 
             Console.Write("Selecione uma das opções acima: ");
@@ -271,6 +412,57 @@ internal class Program
                 Console.WriteLine("|-----------------------------|");
                 Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
             }
+
+        }
+    }
+    public static void CreateUser()
+    {
+        Users users = new();
+        try
+        {
+            users.CPF = CreateCPF();
+        }
+        catch
+        {
+            return;
+        }
+        Console.Write("Insira o Nome do Player: ");
+        users.Nome = Console.ReadLine();
+        Console.Write("Insira o telefone do cliente (DDD): ");
+        users.Telefone = Console.ReadLine();
+        users.Historico += 1;
+
+        using (SqlConnection connect = new(connectionString))
+        {
+            connect.Open();
+            int proximoId;
+            using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM Clientes", connect))
+            {
+                proximoId = (int)cmdNextId.ExecuteScalar();
+            }
+            string query = @"
+                insert into Clientes
+                (
+                	Id, Nome, CPF, Status, Telefone, Historico
+                )
+                values 
+                (
+                	@id, @nome, @CPF, 1, @telefone, @historico
+                )";
+            using (SqlCommand command = new(query, connect))
+            {
+                command.Parameters.AddWithValue("@id", proximoId);
+                command.Parameters.AddWithValue("@nome", users.Nome);
+                command.Parameters.AddWithValue("@CPF", users.CPF);
+                command.Parameters.AddWithValue("@historico", users.Historico);
+                command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(users.Telefone) ? DBNull.Value : users.Telefone);
+
+                command.ExecuteNonQuery();
+                Console.WriteLine("Usuário cadastrado com sucesso.");
+                connect.Close();
+                Thread.Sleep(1000);
+                Console.Clear();
+            }
         }
     }
     static void SelectUserOption()
@@ -297,56 +489,7 @@ internal class Program
             break;
         }
 
-        static void CreateUser()
-        {
-            Users users = new();
-            try
-            {
-                users.CPF = CreateCPF();
-            }
-            catch
-            {
-                return;
-            }
-            Console.Write("Insira o Nome do Player: ");
-            users.Nome = Console.ReadLine();
-            Console.Write("Insira o telefone do cliente (DDD): ");
-            users.Telefone = Console.ReadLine();
-            users.Historico += 1;
 
-            using (SqlConnection connect = new(connectionString))
-            {
-                connect.Open();
-                int proximoId;
-                using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM Clientes", connect))
-                {
-                    proximoId = (int)cmdNextId.ExecuteScalar();
-                }
-                string query = @"
-                insert into Clientes
-                (
-                	Id, Nome, CPF, Status, Telefone, Historico
-                )
-                values 
-                (
-                	@id, @nome, @CPF, 1, @telefone, @historico
-                )";
-                using (SqlCommand command = new(query, connect))
-                {
-                    command.Parameters.AddWithValue("@id", proximoId);
-                    command.Parameters.AddWithValue("@nome", users.Nome);
-                    command.Parameters.AddWithValue("@CPF", users.CPF);
-                    command.Parameters.AddWithValue("@historico", users.Historico);
-                    command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(users.Telefone) ? DBNull.Value : users.Telefone);
-
-                    command.ExecuteNonQuery();
-                    Console.WriteLine("Usuário cadastrado com sucesso.");
-                    connect.Close();
-                    Thread.Sleep(1000);
-                    Console.Clear();
-                }
-            }
-        }
         static void UpdateUser()
         {
             ListUser();
@@ -367,7 +510,7 @@ internal class Program
                     connection.Open();
                     using (SqlCommand cmd = new(query, connection))
                     {
-                        cmd.Parameters.AddWithValue("@id", catchId); //Atribuindo o ID digitado ao @id no db.
+                        cmd.Parameters.AddWithValue("@id", catchId);
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
                             if (reader.Read())
@@ -441,18 +584,14 @@ internal class Program
                         }
                         void UpdateStatus()
                         {
-                            // Definindo a query de atualização
                             string query = "UPDATE Clientes SET status = @status WHERE id = @id";
 
-                            // Usando "using" para garantir que a conexão seja fechada corretamente
                             using (SqlCommand command = new SqlCommand(query, connection))
                             {
                                 try
                                 {
-                                    // Abrindo a conexão
                                     connection.Open();
 
-                                    // Opções de escolha do usuário
                                     var optionUser = AnsiConsole.Prompt(
                                         new SelectionPrompt<string>()
                                         .Title("Alteração de Status, deseja:")
@@ -464,7 +603,6 @@ internal class Program
                                         })
                                     );
 
-                                    // Determinando a ação com base na escolha do usuário
                                     if (optionUser == "Manter")
                                     {
                                         Console.WriteLine($"Mantendo o Status: {user.Status}");
@@ -866,155 +1004,9 @@ internal class Program
                 $"\n*************************";
         }
     }
-
-    public class Pista
+    public class Fila : Users
     {
-        public int Number { get; set; }
-        public bool IsOcuped { get; set; }
-        
-        using System;
-using System.Collections.Generic;
-
-public class Pista
-{
-    public int Numero { get; set; }
-    public bool EstaOcupada { get; set; }
-    public string Cliente { get; set; }
-
-    public Pista(int numero)
-    {
-        Numero = numero;
-        EstaOcupada = false;
-        Cliente = string.Empty;
-    }
-
-    public void OcupaPista(string cliente)
-    {
-        EstaOcupada = true;
-        Cliente = cliente;
-    }
-
-    public void LiberaPista()
-    {
-        EstaOcupada = false;
-        Cliente = string.Empty;
-    }
-
-    public override string ToString()
-    {
-        return EstaOcupada ? $"Pista {Numero} - Ocupada por {Cliente}" : $"Pista {Numero} - Livre";
-    }
-}
-
-public class Boliche
-{
-    private Pista[] pistas;
-    private Queue<string> filaDeEspera;
-
-    public Boliche(int numeroDePistas)
-    {
-        pistas = new Pista[numeroDePistas];
-        filaDeEspera = new Queue<string>();
-
-        // Inicializa as pistas
-        for (int i = 0; i < numeroDePistas; i++)
-        {
-            pistas[i] = new Pista(i + 1);
-        }
-    }
-
-    public void ChegadaCliente(string nomeCliente)
-    {
-        bool alocado = false;
-
-        for (int i = 0; i < pistas.Length; i++)
-        {
-            if (!pistas[i].EstaOcupada)
-            {
-                pistas[i].OcupaPista(nomeCliente);
-                Console.WriteLine($"Cliente {nomeCliente} foi alocado na {pistas[i]}.");
-                alocado = true;
-                break;
-            }
-        }
-
-        if (!alocado)
-        {
-            filaDeEspera.Enqueue(nomeCliente);
-            Console.WriteLine($"Todas as pistas estão ocupadas. Cliente {nomeCliente} foi adicionado à fila de espera.");
-        }
-    }
-
-    public void LiberarPista(int numeroDaPista)
-    {
-        if (numeroDaPista < 1 || numeroDaPista > pistas.Length)
-        {
-            Console.WriteLine("Número de pista inválido.");
-            return;
-        }
-
-        Pista pista = pistas[numeroDaPista - 1];
-
-        if (!pista.EstaOcupada)
-        {
-            Console.WriteLine($"Pista {numeroDaPista} já está livre.");
-            return;
-        }
-
-        Console.WriteLine($"Pista {numeroDaPista} liberada pelo cliente {pista.Cliente}.");
-        pista.LiberaPista();
-
-        if (filaDeEspera.Count > 0)
-        {
-            string proximoCliente = filaDeEspera.Dequeue();
-            pista.OcupaPista(proximoCliente);
-            Console.WriteLine($"Cliente {proximoCliente} foi alocado na {pista}.");
-        }
-    }
-
-    public void ListarPistas()
-    {
-        Console.WriteLine("Estado das pistas:");
-        foreach (var pista in pistas)
-        {
-            Console.WriteLine(pista);
-        }
-    }
-
-    public void ListarFilaDeEspera()
-    {
-        Console.WriteLine("Clientes na fila de espera:");
-        foreach (var cliente in filaDeEspera)
-        {
-            Console.WriteLine(cliente);
-        }
-    }
-}
-
-public class Program
-{
-    public static void Main(string[] args)
-    {
-        Boliche boliche = new Boliche(6); // 6 pistas disponíveis
-
-        boliche.ChegadaCliente("Cliente 1");
-        boliche.ChegadaCliente("Cliente 2");
-        boliche.ChegadaCliente("Cliente 3");
-        boliche.ChegadaCliente("Cliente 4");
-        boliche.ChegadaCliente("Cliente 5");
-        boliche.ChegadaCliente("Cliente 6");
-        boliche.ChegadaCliente("Cliente 7"); // Deverá ir para a fila de espera
-
-        boliche.ListarPistas();
-        boliche.ListarFilaDeEspera();
-
-        // Liberando uma pista
-        boliche.LiberarPista(3);
-
-        boliche.ListarPistas();
-        boliche.ListarFilaDeEspera();
-    }
-}
-
+        public int IdFila { get; set; }
+        public int Qtd { get; set; }
     }
 }
