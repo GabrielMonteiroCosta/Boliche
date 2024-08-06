@@ -1,5 +1,7 @@
 use Boliche
 drop table Clientes
+drop table Fila
+ 
 create table Clientes
 (
 	id int,
@@ -17,7 +19,7 @@ declare @CPF varchar (11)
 declare @status bit
 declare @telefone varchar(20)
 declare @historico int
- 
+
 insert into Clientes
 (
 	nome,
@@ -31,11 +33,11 @@ values
 (
 	@nome, @CPF, @status, @telefone, @id, @historico
 );
-select * from Clientes
-select * from Produtos
-delete from Produtos where idItem = '1'
+
+
+
+delete from Clientes where id = '6'
  
-drop table Produtos
 create table Produtos 
 (
 	idItem int not null,
@@ -44,6 +46,7 @@ create table Produtos
 	precoVenda smallmoney not null,
 	status bit not null
 );
+
  
 declare @idItem int = (select isnull(max(idItem)+1,1) from Produtos)
 declare @descricao varchar(100) 
@@ -68,52 +71,19 @@ values
 );
 
 CREATE TABLE FilaEspera (
-    Id INT IDENTITY PRIMARY KEY,
-    UserId INT NOT NULL,
-    DataEntrada DATETIME NOT NULL DEFAULT GETDATE(),
-    Status NVARCHAR(50) NOT NULL DEFAULT 'Aguardando'
+	idFila int not null,
+	idUser int not null,
+    qtd int,
 );
 
-CREATE PROCEDURE AdicionarAFila
-    @UserId INT
-AS
-BEGIN
-    DECLARE @NumeroDePessoas INT;
-    
-    -- Aqui, você deve substituir 'PistaOcupada' pelo nome da sua tabela que mantém os usuários na pista
-    SELECT @NumeroDePessoas = COUNT(*)
-    FROM PistaOcupada;
+CREATE TABLE Pista (
+	quantidadePista int not null
+);
 
-    IF @NumeroDePessoas >= 6
-    BEGIN
-        -- Adiciona o usuário à fila de espera
-        INSERT INTO FilaEspera (UserId)
-        VALUES (@UserId);
-    END
-    ELSE
-    BEGIN
-        -- Código para adicionar o usuário à lista de usuários ocupando a pista
-        -- Substitua pelo seu código específico
-    END
-END
+insert into Pista
+select * from FilaEspera
+select * from Clientes
+select * from Produtos
+select * from Pista
 
-CREATE PROCEDURE LiberarVagaPista
-AS
-BEGIN
-    DECLARE @ProximoUsuarioId INT;
-    
-    -- Seleciona o próximo usuário na fila, com base na ordem de entrada
-    SELECT TOP 1 @ProximoUsuarioId = UserId
-    FROM FilaEspera
-    ORDER BY DataEntrada;
-
-    IF @ProximoUsuarioId IS NOT NULL
-    BEGIN
-        -- Remove o usuário da fila de espera
-        DELETE FROM FilaEspera
-        WHERE UserId = @ProximoUsuarioId;
-        
-        -- Adiciona o usuário à lista de usuários ocupando a pista
-        -- Substitua pelo seu código específico
-    END
-END
+declare @quantidadePista int
