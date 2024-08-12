@@ -21,12 +21,13 @@ internal class Program
 
         while (true)
         {
-            Console.WriteLine("Bem-Vindo ao Gaboliche!" +
-                "\n(1) Coloque as pessoas na pista para jogar" +
+            Console.WriteLine("\nBem-Vindo ao Gaboliche!" +
+                "\n(1) Verificar a ocupação e efetuar liberação da pista" +
                 "\n(2) Cadastrar, Atualizar ou Ativar/Inativar Usuários" +
                 "\n(3) Cadastrar, Atualizar ou Ativar/Inativar Produtos" +
                 "\n(4) Listar Usuários, Promoções e a Fila de Espera" +
                 "\n(5) Visualizar Cardápio" +
+                "\n(6) Adicionar uma nova pista" +
                 "\n(0) Fechar e Sair.");
 
             Console.Write("\nSelecione uma das opções: ");
@@ -34,11 +35,12 @@ internal class Program
 
             switch (option)
             {
-                case "1": CheckMembers(pista); CheckTime(); ; break;
+                case "1": CheckMembers(); CheckTime(); ; break;
                 case "2": SelectUserOption(); break;
                 case "3": SelectProductOption(); break;
                 case "4": PrintLists(); break;
                 case "5": Menu(); break;
+                case "6": CreateTrack(); break;
                 case "0": Console.WriteLine("Encerrando o programa..."); return;
                 default: Console.WriteLine("Insira uma opção válida!"); break;
             }
@@ -71,26 +73,64 @@ internal class Program
                         productString.PrecoVenda = Convert.ToDouble(reader["precoVenda"]);
                         listProduct.Add(productString);
                     }
-                    var panel = new Panel(new Text(""));
-
-                    panel.Header = new PanelHeader("Cardápio");
-                    panel.Border = BoxBorder.Square;
-                    panel.Padding = new Padding(2, 2, 2, 2);
-                    panel.Expand = true;
-
-                    foreach (var product in listProduct)
-                    {
-                        //panel(product.Descricao + "\n");
-                        Console.WriteLine(product.Descricao + " R$" + product.PrecoVenda);
-                    }
-                    AnsiConsole.Render(panel);
                     connection.Close();
+                    Console.Write("\nCardápio:\n\n");
+                    foreach(var produtos in listProduct)
+                    {
+                        Console.WriteLine(produtos.Descricao + " | R$" + produtos.PrecoVenda);
+                    }
                 }
             }
         }
 
     }
-    static void CheckMembers(List<int> pista)
+    static void CreateTrack()
+    {
+        Console.WriteLine("Tem que certeza que deseja adicionar mais uma pista ao Boliche: ");
+        var option = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                .Title("Cadastro de pistas ")
+                .PageSize(10)
+                .MoreChoicesText("[grey][/]")
+                .AddChoices(new[]
+                {
+                     "Cadastrar nova pista", "Não cadastrar"
+                }));
+
+        switch (option)
+        {
+            case "Cadastrar nova pista":
+                AddTrack();
+                break;
+            case "Não cadastrar": return;
+        }
+        static void AddTrack()
+        {
+            using (SqlConnection connect = new(connectionString))
+            {
+                Console.WriteLine();
+                connect.Open();
+                int addTrack = +1;
+                string query = @"Insert into Pista (idPista, status) values (@idPista, 1)";
+                using (SqlCommand cmd = new SqlCommand(query, connect))
+                {
+                    int nextId;
+                    using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(idPista), 0) + 1 FROM Pista", connect))
+                    {
+                        nextId = (int)cmdNextId.ExecuteScalar();
+                    }
+                    using (SqlCommand command = new SqlCommand())
+                        cmd.Parameters.AddWithValue("@idPista", nextId);
+                    Console.WriteLine();
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+        }
+
+
+    }
+    static void CheckMembers()
     {
         Console.WriteLine("Olá seja bem-vindo, quantas pessoas irão participar: ");
         while (true)
@@ -141,16 +181,26 @@ internal class Program
 
                 switch (option)
                 {
+                    case "Voltar": return;
                     case "Cadastrar Usuário":
                         CreateUser();
+                        InsertPist();
                         break;
                     case "Já tenho cadastro":
                         ListUser();
-                        Users user = null;
-                        Console.Write("Insira o ID do cliente que você deseja alterar: ");
-                        if (int.TryParse(Console.ReadLine(), out int catchId))
-                        {
-                            string query = @"select 
+                        InsertPist();
+                        break;
+
+                }
+
+                static void InsertPist()
+                {
+                    Users user = null;
+                    Pista track = null;
+                    Console.Write("Insira o ID do cliente que você deseja: ");
+                    if (int.TryParse(Console.ReadLine(), out int catchId))
+                    {
+                        string query = @"select 
 	                            id,
                                 nome,
 	                            CPF,
@@ -158,59 +208,100 @@ internal class Program
 	                            telefone, 
 	                            historico
                                 from Clientes where id = @id";
-                            using (SqlConnection connect = new(connectionString))
+                        using (SqlConnection connect = new(connectionString))
+                        {
+                            connect.Open();
+                            using (SqlCommand cmd = new(query, connect))
                             {
-                                connect.Open();
-                                using (SqlCommand cmd = new(query, connect))
+                                cmd.Parameters.AddWithValue("@id", catchId);
+                                using (SqlDataReader reader = cmd.ExecuteReader())
                                 {
-                                    cmd.Parameters.AddWithValue("@id", catchId);
+                                    if (reader.Read())
+                                    {
+                                        user = new Users
+                                        {
+                                            Id = Convert.ToInt32(reader["id"]),
+                                            Nome = reader["nome"].ToString(),
+                                            Status = Convert.ToBoolean(reader["status"]),
+                                            Telefone = reader["telefone"].ToString(),
+                                            CPF = reader["CPF"].ToString()
+                                        };
+                                        connect.Close();
+                                    }
+                                }
+                            }
+                        }
+
+                        Console.WriteLine("Selecione uma das pistas para colocar o cliente (1 à 6) ");
+
+                        if (int.TryParse(Console.ReadLine(), out int trackId))
+                        {
+                            string query1 = @"select idPista, status from Pista where idPista = @idPista";
+                            using (SqlConnection connection = new(connectionString))
+                            {
+                                connection.Open();
+                                using (SqlCommand cmd = new(query1, connection))
+                                {
+                                    cmd.Parameters.AddWithValue("@idPista", trackId);
                                     using (SqlDataReader reader = cmd.ExecuteReader())
                                     {
                                         if (reader.Read())
                                         {
-                                            user = new Users
+                                            track = new Pista
                                             {
-                                                Id = Convert.ToInt32(reader["id"]),
-                                                Nome = reader["nome"].ToString(),
-                                                Status = Convert.ToBoolean(reader["status"]),
-                                                Telefone = reader["telefone"].ToString(),
-                                                CPF = reader["CPF"].ToString()
+                                                idPista = Convert.ToInt32(reader["idPista"]),
+                                                Status = Convert.ToBoolean(reader["Status"])
                                             };
                                         }
                                     }
                                 }
-                                if (pista.Count < 6)
+                                connection.Close();
+                                if (trackId == track.idPista)
                                 {
-
-                                    Console.WriteLine($"Inserindo o cliente {user.Nome} à pista!");
-                                    pista.Add(+1);
-                                    int quantidade = pista.Count();
-                                    Console.WriteLine(quantidade);
-                                    string newQuery = @"Insert into Pista (quantidadePista) values (@quantidadePista)";
-                                    using (SqlCommand cmd = new(newQuery, connect))
+                                    if (track.Status)
                                     {
-                                        cmd.Parameters.AddWithValue("@quantidadePista", quantidade);
-                                        cmd.ExecuteNonQuery();
+                                        Console.WriteLine("Inserindo o usuário a pista!");
+                                        if (track.Status && track.idPista < 6)
+                                        {
+                                            Console.WriteLine($"Inserindo o cliente {user.Nome} à pista {track.idPista}");
+                                            track.Status = false;
+                                            string newQuery = @"UPDATE Pista set idUser = @idUser, status = 1 where idPista = @idPista";
+                                            connection.Open();
+                                            using (SqlCommand command = new(newQuery, connection))
+                                            {
+                                                command.Parameters.AddWithValue("@idUser", user.Id);
+                                                command.Parameters.AddWithValue("@idPista", trackId);
+                                                command.ExecuteNonQuery();
+                                            }
+                                        }
+                                    }
+                                    if (track.Status && track.idPista > 7)
+                                    {
+                                        int idFila, qtd;
+                                        string queryFila = @"Insert into filaEspera (idFila, idUser, qtd) values (@idFila, @idUser, @qtd)";
+                                        using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(idFila), 0) + 1 FROM filaEspera", connection))
+                                        {
+                                            idFila = (int)cmdNextId.ExecuteScalar();
+                                            using (SqlCommand cmd = new(queryFila, connection))
+                                            {
+                                                cmd.Parameters.AddWithValue("@idFila", idFila);
+                                                cmd.Parameters.AddWithValue("@idUser", user.Id);
+                                                cmd.Parameters.AddWithValue("@qtd", idFila);
+                                                cmd.ExecuteNonQuery();
+                                            }
+                                        }
                                     }
                                 }
-                                if (pista.Count > 6)
-                                {
-                                    int proximoId;
-                                    using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM idFila", connect))
-                                    {
-                                        proximoId = (int)cmdNextId.ExecuteScalar();
-                                    }
-                                }
-                                connect.Close();
+                                connection.Close();
+                                return;
                             }
                         }
-                        break;
+                    }
                 }
-                break;
             }
+            break;
         }
     }
-
     static void CheckTime()
     {
         var day = AnsiConsole.Prompt(
@@ -381,13 +472,21 @@ internal class Program
                 case "0": Console.WriteLine("\nRetornando..."); Thread.Sleep(1000); Console.Clear(); return;
                 default: Console.WriteLine("Por favor digite uma opção válida!"); break;
             }
-
             static void ListPromotions()
             {
-                Console.WriteLine("\n********** Promoções disponíveis atualmente **********\n");
-                Console.WriteLine("  > Fidelidade: Após a 5° vez no Gaboliche, ganhe 15% de Desconto na sua próxima vinda!");
-                Console.WriteLine("  > Cupom Galera da Pesada: 10% de Desconto para pista com 6 pessoas.");
-                Console.WriteLine("  > Cupom Pais e Filhos: 5% de Desconto.");
+                var panel = new Panel(new Text("" +
+                    "> Fidelidade: Após a 5° vez no Gaboliche, ganhe 15% de Desconto na sua próxima vinda!" +
+                    "\n> Cupom Galera da Pesada: 10% de Desconto para pista com 6 pessoas." +
+                    "\n> Cupom Pais e Filhos: 5% de Desconto."));
+
+                panel.Header = new PanelHeader("Promoções Ativas");
+                panel.Border = BoxBorder.Double;
+                panel.Padding = new Padding(2, 2, 2, 2);
+                panel.Expand = true;
+                panel.BorderStyle = Color.Gold3_1;
+
+                AnsiConsole.Render(panel);
+
 
             }
             static void ListQueue()
@@ -1008,5 +1107,16 @@ internal class Program
     {
         public int IdFila { get; set; }
         public int Qtd { get; set; }
+    }
+    public class Pista
+    {
+        public int idPista { get; set; } = 6;
+        public bool Status { get; set; }
+
+        public override string ToString()
+        {
+            return $"ID: {idPista}" +
+                $"\nStatus: {(Status ? "Livre" : "Ocupada")}";
+        }
     }
 }
