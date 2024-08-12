@@ -1,0 +1,101 @@
+use Boliche
+drop table Clientes
+drop table Fila
+ 
+create table Clientes
+(
+	id int not null primary key,
+	nome varchar(100) not null,
+	CPF varchar (11) not null,
+	status bit not null,
+	telefone varchar(20) null,
+	historico int null
+)
+
+ 
+declare @id int = (select isnull(max(id)+1,1) from Clientes)
+declare @nome varchar(100)
+declare @CPF varchar (11)
+declare @status bit
+declare @telefone varchar(20)
+declare @historico int
+
+insert into Clientes
+(
+	nome,
+	CPF,
+	status,
+	telefone, 
+	id,
+	historico
+)
+values 
+(
+	@nome, @CPF, @status, @telefone, @id, @historico
+);
+
+
+
+delete from Clientes where id = '6'
+ 
+create table Produtos 
+(
+	idItem int not null,
+	descricao varchar(100) not null,
+	quantidade int not null,
+	precoVenda smallmoney not null,
+	status bit not null
+);
+
+ 
+declare @idItem int = (select isnull(max(idItem)+1,1) from Produtos)
+declare @descricao varchar(100) 
+declare @quantidade int
+declare @precoVenda smallmoney
+
+delete from Produtos
+
+insert into Produtos
+(
+	idItem,
+	Descricao,
+	Quantidade,
+	PrecoVenda
+)
+values 
+(
+	@IdItem,
+	@descricao,
+	@quantidade,
+	@precoVenda
+);
+
+CREATE TABLE FilaEspera (
+	idFila int not null,
+	idUser int not null,
+    qtd int,
+);
+
+CREATE TABLE Pista (
+	idPista int,
+	status bit not null,
+	idUser int foreign key references Clientes(id)
+);
+INSERT INTO Pista (idUser, status)
+VALUES ('6', '1');
+
+drop table Pista
+select * from Pista
+drop table Pista
+
+declare @quantidadePista int
+declare @idPista int
+
+
+select * from FilaEspera
+select * from Clientes
+select * from Produtos
+select * from Pista
+
+
+
