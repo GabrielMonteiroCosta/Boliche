@@ -97,3 +97,9 @@ select * from FilaEspera
 select * from Clientes
 select * from Produtos
 select * from Pista
+
+CREATE TABLE filaEspera (
+    idFila INT IDENTITY PRIMARY KEY,
+    idUser INT,
+    dataInsercao DATETIME DEFAULT GETDATE()
+);
