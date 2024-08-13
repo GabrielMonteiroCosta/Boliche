@@ -1,7 +1,7 @@
 use Boliche
 drop table Clientes
 drop table Fila
- 
+ // dropar clientes e criar como primary key o historico
 create table Clientes
 (
 	id int not null primary key,
@@ -70,34 +70,33 @@ values
 	@precoVenda
 );
 
-CREATE TABLE FilaEspera (
-	idFila int not null,
-	idUser int not null,
-    qtd int,
-);
 
 CREATE TABLE Pista (
 	idPista int,
 	status bit not null,
 	HorarioEntrada datetime,
+	HorarioSaida datetime,
 	idUser int foreign key references Clientes(id)
+	histUser int foreign key references Clientes(historico)
 );
-INSERT INTO Pista (idUser, status)
-VALUES ('6', '1');
+INSERT INTO Pista (idPista, status)
+VALUES (@idPista, @status);
 
-drop table Pista
+drop table FilaEspera
 select * from Pista
 drop table Pista
 
 declare @quantidadePista int
-declare @idPista int
+declare @idPista int = '6'
 declare @horarioEntrada datetime
+declare @horarioSaida datetime
+declare @idUser int
 
 select * from FilaEspera
 select * from Clientes
 select * from Produtos
 select * from Pista
-
+                     
 CREATE TABLE filaEspera (
     idFila INT IDENTITY PRIMARY KEY,
     idUser INT,
