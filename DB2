@@ -79,6 +79,7 @@ CREATE TABLE FilaEspera (
 CREATE TABLE Pista (
 	idPista int,
 	status bit not null,
+	HorarioEntrada datetime,
 	idUser int foreign key references Clientes(id)
 );
 INSERT INTO Pista (idUser, status)
@@ -90,12 +91,9 @@ drop table Pista
 
 declare @quantidadePista int
 declare @idPista int
-
+declare @horarioEntrada datetime
 
 select * from FilaEspera
 select * from Clientes
 select * from Produtos
 select * from Pista
-
-
-
