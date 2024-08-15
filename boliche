@@ -40,7 +40,7 @@ internal class Program
 
             switch (option)
             {
-                case "1": CheckMembers(); break;
+                case "1": /*CheckMembers();*/AddRandomItens(); break;
                 case "2": SelectUserOption(); break;
                 case "3": SelectProductOption(); break;
                 case "4": Waiting(); break;
@@ -89,8 +89,55 @@ internal class Program
         }
 
     }
+    static void AddRandomItens()
+    {
+        Product product = new Product();
+        Random random = new Random();
+        List<Product> listProduct = new();
+
+        using (SqlConnection connection = new(connectionString))
+        {
+            connection.Open();
+            string query = @"select
+                        idItem,
+                        descricao,
+                        status,
+                        quantidade,
+                        precoVenda
+                        from Produtos";
+            using (SqlCommand command = new(query, connection))
+            {
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Product productString = new();
+                        productString.IdItem = Convert.ToInt32(reader["idItem"]);
+                        productString.Descricao = reader["descricao"].ToString();
+                        productString.Status = Convert.ToBoolean(reader["Status"]);
+                        productString.Quantidade = Convert.ToInt32(reader["quantidade"]);
+                        productString.PrecoVenda = Convert.ToDouble(reader["precoVenda"]);
+                        listProduct.Add(productString);
+                    }
+
+                    Console.Write("\nCardápio:\n\n");
+                    foreach (var produtos in listProduct)
+                    {
+                        Console.WriteLine("R$" + produtos.PrecoVenda + ".....   " + produtos.Descricao);
+                    }
+                    Console.WriteLine("Insira um item ao seu cesto: ");
+                    if (int.TryParse(Console.ReadLine(), out int catchId))
+                    {
+
+                    }
+                    connection.Close();
+                }
+            }
+        }
+    }
     static void CreateTrack()
     {
+        List<Pista> pista = new();
         Console.WriteLine("Tem que certeza que deseja adicionar mais uma pista ao Boliche: ");
         var option = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
@@ -126,7 +173,6 @@ internal class Program
                     }
                     using (SqlCommand command = new SqlCommand())
                         cmd.Parameters.AddWithValue("@idPista", nextId);
-                    Console.WriteLine();
                     cmd.ExecuteNonQuery();
                 }
             }
@@ -246,14 +292,13 @@ internal class Program
                                 using (SqlCommand cmd = new(queryFila, connection))
                                 {
                                     cmd.Parameters.AddWithValue("@idUser", user.Id);
-                                    cmd.Parameters.AddWithValue("@historico")
+                                    cmd.Parameters.AddWithValue("@historico", "@historico");
                                     cmd.ExecuteNonQuery();
                                 }
                             }
                         }
                     }
                 }
-
             }
         }
     }
@@ -263,7 +308,7 @@ internal class Program
         using (SqlConnection connection = new(connectionString))
         {
             connection.Open();
-            string query = @"SELECT idPista, status from Pista";
+            string query = @"SELECT idPista, status, idUser from Pista";
             using (SqlCommand cmd = new(query, connection))
             {
                 using (SqlDataReader reader = cmd.ExecuteReader())
@@ -273,6 +318,7 @@ internal class Program
                         Pista track = new Pista();
                         track.idPista = Convert.ToInt32(reader["idPista"]);
                         track.Status = Convert.ToBoolean(reader["Status"]);
+                        track.idUser = Convert.ToInt32(reader["idUser"]);
                         pista.Add(track);
                     };
                 }
@@ -281,35 +327,31 @@ internal class Program
             {
                 Console.WriteLine(track);
             }
-
-
         }
     }
-
     static void RemoveFromTrack()
     {
-        Console.Write("Insira o ID da PISTA que você deseja registrar a saída: ");
-        if (int.TryParse(Console.ReadLine(), out int trackId))
+        List<Pista> pistas = new();
+        Pista pista = null;
+
+        string query = @"SELECT idPista, Status FROM Pista WHERE idPista = @idPista";
+        using (SqlConnection connect = new(connectionString))
         {
-            string query = @"UPDATE Pista SET idUser = null, HorarioEntrada = null, status = @status, HorarioSaida = @horarioSaida WHERE idPista = @idPista";
-            DateTime leftHour = DateTime.Now;
-            using (SqlConnection connection = new(connectionString))
+            connect.Open();
+            using (SqlCommand cmd = new(query, connect))
             {
-                connection.Open();
-                using (SqlCommand command = new(query, connection))
+                using (SqlDataReader reader = cmd.ExecuteReader())
                 {
-                    command.Parameters.AddWithValue("@idPista", trackId);
-                    command.Parameters.AddWithValue("@horarioSaida", leftHour);
-                    command.Parameters.AddWithValue("@status", true);
-                    command.ExecuteNonQuery();
+                    if (reader.Read())
+                    {
+                        pista = new Pista
+                        {
+                            idPista = Convert.ToInt32(reader["idPista"]),
+                            Status = Convert.ToBoolean(reader["status"]),
+                        };
+                    }
                 }
             }
-            Console.WriteLine("Horário de saída registrado com sucesso!" +leftHour);
-
-        }
-        else
-        {
-            Console.WriteLine("Pista inválida.");
         }
     }
     static void CheckMembers()
@@ -381,7 +423,6 @@ internal class Program
             break;
         }
     }
-
     public static string? CreateCPF()
     {
         static string? CheckCPF()
@@ -587,16 +628,16 @@ internal class Program
         try
         {
             users.CPF = CreateCPF();
+            Console.Write("Insira o Nome do Player: ");
+            users.Nome = Console.ReadLine();
+            Console.Write("Insira o telefone do cliente (DDD): ");
+            users.Telefone = CreatePhone();
+            users.Historico = 1;
         }
         catch
         {
             return;
         }
-        Console.Write("Insira o Nome do Player: ");
-        users.Nome = Console.ReadLine();
-        Console.Write("Insira o telefone do cliente (DDD): ");
-        users.Telefone = Console.ReadLine();
-        users.Historico += 1;
 
         using (SqlConnection connect = new(connectionString))
         {
@@ -966,6 +1007,8 @@ internal class Program
                                  "Descrição","Quantidade", "Status", "PrecoVenda", "Voltar"
                             }));
 
+
+
                         switch (updateProduct)
                         {
                             case "Descrição": UpdateDesc(); break;
@@ -1179,11 +1222,15 @@ internal class Program
     {
         public int idPista { get; set; }
         public bool Status { get; set; }
-
+        public int idUser { get; set; }
         public override string ToString()
         {
             return $"\nPista Número: {idPista}" +
-                $"\nStatus: {(Status ? "Livre" : "Ocupada")}\n";
+                $"\nStatus: {(Status ? "Livre" : "Ocupada" + $"\nID Usuário:{idUser}")}\n";
         }
+    }
+    public class Data
+    {
+
     }
 }
