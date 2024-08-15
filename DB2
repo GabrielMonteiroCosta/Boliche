@@ -1,7 +1,6 @@
 use Boliche
 drop table Clientes
 drop table Fila
- // dropar clientes e criar como primary key o historico
 create table Clientes
 (
 	id int not null primary key,
@@ -9,9 +8,9 @@ create table Clientes
 	CPF varchar (11) not null,
 	status bit not null,
 	telefone varchar(20) null,
-	historico int null
-)
+	historico int not null)
 
+drop table Produtos
  
 declare @id int = (select isnull(max(id)+1,1) from Clientes)
 declare @nome varchar(100)
@@ -40,7 +39,7 @@ delete from Clientes where id = '6'
  
 create table Produtos 
 (
-	idItem int not null,
+	idItem int not null primary key,
 	descricao varchar(100) not null,
 	quantidade int not null,
 	precoVenda smallmoney not null,
@@ -102,3 +101,5 @@ CREATE TABLE filaEspera (
     idUser INT,
     dataInsercao DATETIME DEFAULT GETDATE()
 );
+
+delete from Clientes where id = '8'	
