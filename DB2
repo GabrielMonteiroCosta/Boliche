@@ -97,9 +97,9 @@ select * from Produtos
 select * from Pista
                      
 CREATE TABLE filaEspera (
-    idFila INT IDENTITY PRIMARY KEY,
-    idUser INT,
-    dataInsercao DATETIME DEFAULT GETDATE()
+    idFila int identity primary key,
+    idUser int,
+    dataInsercao datetime default GETDATE()
 );
 
-delete from Clientes where id = '8'	
+delete from Pista
