@@ -9,13 +9,14 @@ using static System.Net.Mime.MediaTypeNames;
 using Spectre.Console.Cli;
 using System.Data.SqlClient;
 using System.Numerics;
+using System.Data;
 
 
 //todo: Finalizar a parte da fila, começar a parte de cálculo de Tempo que cada cliente fica junto com as coisas que ele pediu no inicio
 //-> somar e trazer a finalização. o Histórico do cliete precisa ser finalizado pois nõ está somando assim não pode ser aplicado descontos
 internal class Program
 {
-    const string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
+    const string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
     private static void Main(string[] args)
     {
         List<Users> clientes = new();
@@ -40,7 +41,7 @@ internal class Program
 
             switch (option)
             {
-                case "1": /*CheckMembers();*/AddRandomItens(); break;
+                case "1": CheckMembers(); break;
                 case "2": SelectUserOption(); break;
                 case "3": SelectProductOption(); break;
                 case "4": Waiting(); break;
@@ -89,55 +90,8 @@ internal class Program
         }
 
     }
-    static void AddRandomItens()
-    {
-        Product product = new Product();
-        Random random = new Random();
-        List<Product> listProduct = new();
-
-        using (SqlConnection connection = new(connectionString))
-        {
-            connection.Open();
-            string query = @"select
-                        idItem,
-                        descricao,
-                        status,
-                        quantidade,
-                        precoVenda
-                        from Produtos";
-            using (SqlCommand command = new(query, connection))
-            {
-                using (SqlDataReader reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        Product productString = new();
-                        productString.IdItem = Convert.ToInt32(reader["idItem"]);
-                        productString.Descricao = reader["descricao"].ToString();
-                        productString.Status = Convert.ToBoolean(reader["Status"]);
-                        productString.Quantidade = Convert.ToInt32(reader["quantidade"]);
-                        productString.PrecoVenda = Convert.ToDouble(reader["precoVenda"]);
-                        listProduct.Add(productString);
-                    }
-
-                    Console.Write("\nCardápio:\n\n");
-                    foreach (var produtos in listProduct)
-                    {
-                        Console.WriteLine("R$" + produtos.PrecoVenda + ".....   " + produtos.Descricao);
-                    }
-                    Console.WriteLine("Insira um item ao seu cesto: ");
-                    if (int.TryParse(Console.ReadLine(), out int catchId))
-                    {
-
-                    }
-                    connection.Close();
-                }
-            }
-        }
-    }
     static void CreateTrack()
     {
-        List<Pista> pista = new();
         Console.WriteLine("Tem que certeza que deseja adicionar mais uma pista ao Boliche: ");
         var option = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
@@ -173,6 +127,7 @@ internal class Program
                     }
                     using (SqlCommand command = new SqlCommand())
                         cmd.Parameters.AddWithValue("@idPista", nextId);
+                    Console.WriteLine();
                     cmd.ExecuteNonQuery();
                 }
             }
@@ -292,13 +247,13 @@ internal class Program
                                 using (SqlCommand cmd = new(queryFila, connection))
                                 {
                                     cmd.Parameters.AddWithValue("@idUser", user.Id);
-                                    cmd.Parameters.AddWithValue("@historico", "@historico");
                                     cmd.ExecuteNonQuery();
                                 }
                             }
                         }
                     }
                 }
+
             }
         }
     }
@@ -308,7 +263,7 @@ internal class Program
         using (SqlConnection connection = new(connectionString))
         {
             connection.Open();
-            string query = @"SELECT idPista, status, idUser from Pista";
+            string query = @"SELECT idPista, status from Pista";
             using (SqlCommand cmd = new(query, connection))
             {
                 using (SqlDataReader reader = cmd.ExecuteReader())
@@ -318,7 +273,6 @@ internal class Program
                         Pista track = new Pista();
                         track.idPista = Convert.ToInt32(reader["idPista"]);
                         track.Status = Convert.ToBoolean(reader["Status"]);
-                        track.idUser = Convert.ToInt32(reader["idUser"]);
                         pista.Add(track);
                     };
                 }
@@ -327,31 +281,35 @@ internal class Program
             {
                 Console.WriteLine(track);
             }
+
+
         }
     }
+
     static void RemoveFromTrack()
     {
-        List<Pista> pistas = new();
-        Pista pista = null;
-
-        string query = @"SELECT idPista, Status FROM Pista WHERE idPista = @idPista";
-        using (SqlConnection connect = new(connectionString))
+        Console.Write("Insira o ID da PISTA que você deseja registrar a saída: ");
+        if (int.TryParse(Console.ReadLine(), out int trackId))
         {
-            connect.Open();
-            using (SqlCommand cmd = new(query, connect))
+            string query = @"UPDATE Pista SET idUser = null, HorarioEntrada = null, status = @status, HorarioSaida = @horarioSaida WHERE idPista = @idPista";
+            DateTime leftHour = DateTime.Now;
+            using (SqlConnection connection = new(connectionString))
             {
-                using (SqlDataReader reader = cmd.ExecuteReader())
+                connection.Open();
+                using (SqlCommand command = new(query, connection))
                 {
-                    if (reader.Read())
-                    {
-                        pista = new Pista
-                        {
-                            idPista = Convert.ToInt32(reader["idPista"]),
-                            Status = Convert.ToBoolean(reader["status"]),
-                        };
-                    }
+                    command.Parameters.AddWithValue("@idPista", trackId);
+                    command.Parameters.AddWithValue("@horarioSaida", leftHour);
+                    command.Parameters.AddWithValue("@status", true);
+                    command.ExecuteNonQuery();
                 }
             }
+            Console.WriteLine("Horário de saída registrado com sucesso!" + leftHour);
+
+        }
+        else
+        {
+            Console.WriteLine("Pista inválida.");
         }
     }
     static void CheckMembers()
@@ -423,6 +381,7 @@ internal class Program
             break;
         }
     }
+
     public static string? CreateCPF()
     {
         static string? CheckCPF()
@@ -452,7 +411,44 @@ internal class Program
         }
         return cpf;
     }
+    /*public static string? CreateCPF()
+    {
+        // Método local para verificar a validade do CPF
+        static string? CheckCPF()
+        {
+            Console.WriteLine("Digite o CPF: ");
+            string? validar = Console.ReadLine();
 
+            // Verifica se o CPF tem exatamente 11 caracteres
+            if (validar?.Length != 11)
+            {
+                Console.WriteLine("Não foi possível registrar esse CPF, parece que há menos números do que deveria!");
+                return CheckCPF();
+            }
+            return validar;
+        }
+
+        // Chama o método para verificar o CPF
+        string? cpf = CheckCPF();
+
+        // Consulta ao banco de dados usando o DatabaseHelper
+        string query = "SELECT COUNT(CPF) FROM Clientes WHERE CPF = @CPF";
+        int existingCpfCount = DatabaseHelper.ExecuteScalar<int>(cmd =>
+        {
+            cmd.CommandText = query;
+            cmd.Parameters.AddWithValue("@CPF", string.IsNullOrEmpty(cpf) ? DBNull.Value : cpf);
+            return (int)cmd.ExecuteScalar();
+        });
+
+        // Verifica se o CPF já está cadastrado no sistema
+        if (existingCpfCount > 0)
+        {
+            Console.WriteLine("Esse CPF já existe cadastrado no nosso sistema.");
+            throw new Exception();
+        }
+
+        return cpf;
+    }*/
     public static string? CreatePhone()
     {
         static string? CheckPhone()
@@ -628,50 +624,48 @@ internal class Program
         try
         {
             users.CPF = CreateCPF();
-            Console.Write("Insira o Nome do Player: ");
-            users.Nome = Console.ReadLine();
-            Console.Write("Insira o telefone do cliente (DDD): ");
-            users.Telefone = CreatePhone();
-            users.Historico = 1;
         }
         catch
         {
             return;
         }
 
-        using (SqlConnection connect = new(connectionString))
-        {
-            connect.Open();
-            int proximoId;
-            using (SqlCommand cmdNextId = new("SELECT ISNULL(MAX(id), 0) + 1 FROM Clientes", connect))
-            {
-                proximoId = (int)cmdNextId.ExecuteScalar();
-            }
-            string query = @"
-                insert into Clientes
-                (
-                	Id, Nome, CPF, Status, Telefone, Historico
-                )
-                values 
-                (
-                	@id, @nome, @CPF, 1, @telefone, @historico
-                )";
-            using (SqlCommand command = new(query, connect))
-            {
-                command.Parameters.AddWithValue("@id", proximoId);
-                command.Parameters.AddWithValue("@nome", users.Nome);
-                command.Parameters.AddWithValue("@CPF", users.CPF);
-                command.Parameters.AddWithValue("@historico", users.Historico);
-                command.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(users.Telefone) ? DBNull.Value : users.Telefone);
+        Console.Write("Insira o Nome do Player: ");
+        users.Nome = Console.ReadLine();
+        Console.Write("Insira o telefone do cliente (DDD): ");
+        users.Telefone = Console.ReadLine();
+        users.Historico += 1;
 
-                command.ExecuteNonQuery();
-                Console.WriteLine("Usuário cadastrado com sucesso.");
-                connect.Close();
-                Thread.Sleep(1000);
-                Console.Clear();
-            }
-        }
+        int proximoId = DatabaseHelper.ExecuteScalar<int>(cmd =>
+        {
+            cmd.CommandText = "SELECT ISNULL(MAX(id), 0) + 1 FROM Clientes";
+            return (int)cmd.ExecuteScalar();
+        });
+
+        string query = @"
+        INSERT INTO Clientes
+        (
+            Id, Nome, CPF, Status, Telefone, Historico
+        )
+        VALUES 
+        (
+            @id, @nome, @CPF, 1, @telefone, @historico
+        )";
+
+        DatabaseHelper.ExecuteNonQuery(query, cmd =>
+        {
+            cmd.Parameters.AddWithValue("@id", proximoId);
+            cmd.Parameters.AddWithValue("@nome", users.Nome);
+            cmd.Parameters.AddWithValue("@CPF", users.CPF);
+            cmd.Parameters.AddWithValue("@historico", users.Historico);
+            cmd.Parameters.AddWithValue("@telefone", string.IsNullOrEmpty(users.Telefone) ? DBNull.Value : users.Telefone);
+        });
+
+        Console.WriteLine("Usuário cadastrado com sucesso.");
+        Thread.Sleep(1000);
+        Console.Clear();
     }
+
     static void SelectUserOption()
     {
         while (true)
@@ -1007,8 +1001,6 @@ internal class Program
                                  "Descrição","Quantidade", "Status", "PrecoVenda", "Voltar"
                             }));
 
-
-
                         switch (updateProduct)
                         {
                             case "Descrição": UpdateDesc(); break;
@@ -1222,15 +1214,61 @@ internal class Program
     {
         public int idPista { get; set; }
         public bool Status { get; set; }
-        public int idUser { get; set; }
+
         public override string ToString()
         {
             return $"\nPista Número: {idPista}" +
-                $"\nStatus: {(Status ? "Livre" : "Ocupada" + $"\nID Usuário:{idUser}")}\n";
+                $"\nStatus: {(Status ? "Livre" : "Ocupada")}\n";
         }
     }
-    public class Data
+    public static class DatabaseHelper
     {
+        private static readonly string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
 
+        public static SqlConnection GetConnection()
+        {
+            SqlConnection connection = new SqlConnection(connectionString);
+            connection.Open();
+            return connection;
+        }
+
+        public static void ExecuteCommand(Action<SqlCommand> commandAction)
+        {
+            using (SqlConnection connection = GetConnection())
+            using (SqlCommand command = connection.CreateCommand())
+            {
+                commandAction(command);
+            }
+        }
+
+        public static T ExecuteScalar<T>(Func<SqlCommand, T> commandAction)
+        {
+            using (SqlConnection connection = GetConnection())
+            using (SqlCommand command = connection.CreateCommand())
+            {
+                return commandAction(command);
+            }
+        }
+
+        public static void ExecuteNonQuery(string query, Action<SqlCommand> parameterAction)
+        {
+            ExecuteCommand(cmd =>
+            {
+                cmd.CommandText = query;
+                parameterAction(cmd);
+                cmd.ExecuteNonQuery();
+            });
+        }
+
+        public static SqlDataReader ExecuteReader(string query, Action<SqlCommand> parameterAction)
+        {
+            SqlConnection connection = GetConnection();
+            using (SqlCommand command = connection.CreateCommand())
+            {
+                command.CommandText = query;
+                parameterAction(command);
+                return command.ExecuteReader(CommandBehavior.CloseConnection);
+            }
+        }
     }
 }
