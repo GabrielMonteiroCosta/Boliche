@@ -102,4 +102,12 @@ CREATE TABLE filaEspera (
     dataInsercao datetime default GETDATE()
 );
 
-delete from Pista
+CREATE TABLE PedidoPista (
+	idPista int not null,
+	idItem int not null,
+	quantidadePedido int not null,
+	valorTotal smallMoney not null,
+	);
+
+
+	Select * from PedidoPista
