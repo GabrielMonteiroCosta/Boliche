@@ -16,7 +16,7 @@ using System.Data;
 //-> somar e trazer a finalização. o Histórico do cliete precisa ser finalizado pois nõ está somando assim não pode ser aplicado descontos
 internal class Program
 {
-    const string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
+    const string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
     private static void Main(string[] args)
     {
         List<Users> clientes = new();
@@ -33,6 +33,7 @@ internal class Program
                 "\n(4) Listar Usuários, Promoções e a Fila de Espera" +
                 "\n(5) Registrar a saída de um Jogador" +
                 "\n(6) Adicionar uma nova pista" +
+                "\n(7) Anotar um Pedido" +
                 "\n(0) Fechar e Sair.");
 
             Console.Write("\nSelecione uma das opções: ");
@@ -40,17 +41,43 @@ internal class Program
 
             switch (option)
             {
-                case "1": CheckMembers(); break;
+                case "1": Checks(); break;
                 case "2": SelectUserOption(); break;
                 case "3": SelectProductOption(); break;
-                case "4": Waiting(); break;
+                case "4": PrintLists(); break;
                 case "5": RemoveFromTrack(); break;
                 case "6": CreateTrack(); break;
+                case "7": InsertToOrder(); break;
                 case "0": Console.WriteLine("Encerrando o programa..."); return;
                 default: Console.WriteLine("Insira uma opção válida!"); break;
             }
         }
     }
+
+    static void TrackVerify()
+    {
+        List<Pista> track = new();
+
+        string query = @"
+        SELECT
+            idPista,
+            status
+        FROM Pista";
+
+        using (SqlDataReader reader = DatabaseHelper.ExecuteReader(query, cmd => { }))
+        {
+            while (reader.Read())
+            {
+                Pista pista = new Pista
+                {
+                    idPista = Convert.ToInt32(reader["idPista"]),
+                    Status = Convert.ToBoolean(reader["Status"])
+                };
+                track.Add(pista);
+            }
+        }
+
+    }// tpdo terminar a validação da pista para inserir ou não cliente a fila diretamente
     static void Menu()
     {
         List<Product> listProduct = new();
@@ -140,22 +167,6 @@ internal class Program
         Pista track = null;
         List<Product> productList = new();
 
-        static void CheckTime()
-        {
-            var day = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                .Title("Qual é o dia da semana? ")
-                .PageSize(10)
-                .MoreChoicesText("[grey](Selecione o dia: )[/]")
-                .AddChoices(new[]
-                {
-                "Segunda-Feira", "Terça-Feira", "Quarta-Feira", "Quinta-Feira", "Sexta-Feira", "Sábado", "Domingo"
-                }));
-
-            DateTime horaAtual = DateTime.Now;
-            Console.WriteLine($"Hoje é dia [{horaAtual}] [{day}]");
-        }
-
         Console.Write("Insira o ID do cliente que você deseja inserir na pista: ");
         if (int.TryParse(Console.ReadLine(), out int catchId))
         {
@@ -179,6 +190,7 @@ internal class Program
                 }
             });
 
+            Waiting();
             Console.WriteLine("Selecione uma das pistas para colocar o cliente (1 à 6): ");
             if (int.TryParse(Console.ReadLine(), out int trackId))
             {
@@ -218,7 +230,7 @@ internal class Program
                     {
                         Console.WriteLine($"Inserindo o cliente {user.Nome} na pista {track.idPista}");
                         track.Status = false;
-                        DatabaseHelper.ExecuteNonQuery("UPDATE Pista SET idUser = @idUser, status = 0, HorarioEntrada = @horarioEntrada WHERE idPista = @idPista", cmd =>
+                        DatabaseHelper.ExecuteNonQuery("UPDATE Pista SET idUser = @idUser, status = 0, HorarioEntrada = @horarioEntrada, HorarioSaida = null WHERE idPista = @idPista", cmd =>
                         {
                             cmd.Parameters.AddWithValue("@idUser", user.Id);
                             cmd.Parameters.AddWithValue("@idPista", track.idPista);
@@ -233,62 +245,8 @@ internal class Program
                             cmd.Parameters.AddWithValue("@idUser", user.Id);
                         });
                     }
-
-                    Console.WriteLine("Selecione os produtos e quantidades desejadas:");
-
-                    DatabaseHelper.ExecuteCommand(cmd =>
-                    {
-                        cmd.CommandText = "SELECT idItem, descricao, precoVenda, quantidade FROM Produtos";
-                        using (SqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                Product product = new Product
-                                {
-                                    IdItem = Convert.ToInt32(reader["idItem"]),
-                                    Descricao = reader["descricao"].ToString(),
-                                    PrecoVenda = Convert.ToDouble(reader["precoVenda"]),
-                                    Quantidade = Convert.ToInt32(reader["quantidade"])
-                                };
-                                productList.Add(product);
-                            }
-                        }
-                    });
-
-                    foreach (var product in productList)
-                    {
-                        Console.WriteLine($"ID: {product.IdItem} - {product.Descricao} - R${product.PrecoVenda} - Disponível: {product.Quantidade}");
-                    }
-
-                    while (true)
-                    {
-                        Console.Write("Digite o ID do produto para adicionar ao pedido (ou 0 para finalizar): ");
-                        if (int.TryParse(Console.ReadLine(), out int productId) && productId == 0)
-                        {
-                            break;
-                        }
-
-                        var selectedProduct = productList.FirstOrDefault(p => p.IdItem == productId);
-                        if (selectedProduct != null)
-                        {
-                            Console.Write($"Quantidade de {selectedProduct.Descricao}: ");
-                            if (int.TryParse(Console.ReadLine(), out int quantity) && quantity > 0 && quantity <= selectedProduct.Quantidade)
-                            {
-                                DatabaseHelper.ExecuteNonQuery("UPDATE Produtos SET quantidade = quantidade - @quantity WHERE idItem = @idItem", cmd =>
-                                {
-                                    cmd.Parameters.AddWithValue("@idItem", selectedProduct.IdItem);
-                                    cmd.Parameters.AddWithValue("@quantity", quantity);
-                                });
-
-                                Console.WriteLine($"Produto {selectedProduct.Descricao} atualizado com sucesso.");
-                            }
-
-                            Console.WriteLine("Quantidade inválida ou insuficiente.");
-                            return;
-                        }
-                        Console.WriteLine("Produto não encontrado.");
-                        return;
-                    }
+                    Console.Clear();
+                    return;
                 }
                 Console.WriteLine("Pista não encontrada.");
                 return;
@@ -298,6 +256,105 @@ internal class Program
         }
         Console.WriteLine("ID do cliente inválido.");
         return;
+    }
+    static void InsertToOrder()
+    {
+        Pista track = null;
+        List<Product> productList = new();
+
+        PrintOnlyTrack();
+
+        Console.WriteLine("Selecione a pista que você deseja inserir o pedido: ");
+        if (int.TryParse(Console.ReadLine(), out int trackId))
+        {
+            DatabaseHelper.ExecuteCommand(cmd =>
+            {
+                cmd.CommandText = @"SELECT idPista, status FROM Pista WHERE idPista = @idPista";
+                cmd.Parameters.AddWithValue("@idPista", trackId);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        track = new Pista
+                        {
+                            idPista = Convert.ToInt32(reader["idPista"]),
+                            Status = Convert.ToBoolean(reader["status"])
+                        };
+                    }
+                }
+            });
+            ListProduct();
+            Console.WriteLine("Selecione os produtos e quantidades desejadas:");
+
+            DatabaseHelper.ExecuteCommand(cmd =>
+            {
+                cmd.CommandText = "SELECT idItem, descricao, precoVenda, quantidade FROM Produtos";
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Product product = new Product
+                        {
+                            IdItem = Convert.ToInt32(reader["idItem"]),
+                            Descricao = reader["descricao"].ToString(),
+                            PrecoVenda = Convert.ToDouble(reader["precoVenda"]),
+                            Quantidade = Convert.ToInt32(reader["quantidade"])
+                        };
+                        productList.Add(product);
+                    }
+                }
+            });
+
+            
+            foreach (var product in productList)
+            {
+                Console.WriteLine($"\nID: {product.IdItem} - {product.Descricao} - R${product.PrecoVenda} - Disponível: {product.Quantidade}");
+            }
+
+            while (true)
+            {
+                Console.Write("Digite o ID do produto para adicionar ao pedido (ou 0 para finalizar): ");
+                if (int.TryParse(Console.ReadLine(), out int productId) && productId == 0)
+                {
+                    break;
+                }
+
+                var selectedProduct = productList.FirstOrDefault(p => p.IdItem == productId);
+                if (selectedProduct != null)
+                {
+                    Console.Write($"Quantidade de {selectedProduct.Descricao}: ");
+                    if (int.TryParse(Console.ReadLine(), out int quantity) && quantity > 0 && quantity <= selectedProduct.Quantidade)
+                    {
+                        double tot = selectedProduct.PrecoVenda * quantity;
+                        DatabaseHelper.ExecuteNonQuery(@"INSERT INTO PedidoPista (quantidadePedido, idItem, idPista, valorTotal) values (@quantity, @idItem, @idPista, @valorTotal)", cmd =>
+                        {
+                            cmd.Parameters.AddWithValue("@idPista", trackId);
+                            cmd.Parameters.AddWithValue("@idItem", selectedProduct.IdItem);
+                            cmd.Parameters.AddWithValue("@quantity", quantity);
+                            cmd.Parameters.AddWithValue("@valorTotal", tot);
+                        });
+                        
+                        DatabaseHelper.ExecuteNonQuery("UPDATE Produtos SET quantidade = quantidade - @quantity WHERE idItem = @idItem", cmd =>
+                        {
+                            cmd.Parameters.AddWithValue("@idItem", selectedProduct.IdItem);
+                            cmd.Parameters.AddWithValue("@quantity", quantity);
+                        });
+
+                        Console.WriteLine($"Produto {selectedProduct.Descricao} adicionado com sucesso.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Quantidade inválida ou insuficiente.");
+                        return;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Produto não encontrado.");
+                    return;
+                }
+            }
+        }
     }
     static void Waiting()
     {
@@ -346,6 +403,9 @@ internal class Program
     }
     static void RemoveFromTrack()
     {
+        PrintOnlyTrack();
+
+        Console.WriteLine("(PISTAS LIVRES NÃO APARECEM AQUI)");
         Console.Write("Insira o ID da PISTA que você deseja registrar a saída: ");
 
         if (int.TryParse(Console.ReadLine(), out int trackId))
@@ -391,9 +451,26 @@ internal class Program
             Console.WriteLine("ID da pista inválido.");
         }
     }
-    static void CheckMembers()
+    static void Checks()
     {
-        Console.WriteLine("Olá, seja bem-vindo! Quantas pessoas irão participar? ");
+        static void CheckTime()
+        {
+            var day = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                .Title("Qual é o dia da semana? ")
+                .PageSize(10)
+                .MoreChoicesText("[grey](Selecione o dia: )[/]")
+                .AddChoices(new[]
+                {
+                "Segunda-Feira", "Terça-Feira", "Quarta-Feira", "Quinta-Feira", "Sexta-Feira", "Sábado", "Domingo"
+                }));
+
+            DateTime horaAtual = DateTime.Now;
+            Console.WriteLine($"Hoje é dia [{horaAtual}] [{day}]");
+        }
+
+        CheckTime();
+        Console.WriteLine("Quantas pessoas irão participar? ");
 
         while (true)
         {
@@ -635,7 +712,7 @@ internal class Program
 
                 panel.Header = new PanelHeader("Promoções Ativas");
                 panel.Border = BoxBorder.Double;
-                panel.Padding = new Padding(2, 2, 2, 2);
+                panel.Padding = new Padding(4, 4, 4, 4);
                 panel.Expand = true;
                 panel.BorderStyle = Color.Gold3_1;
 
@@ -666,6 +743,37 @@ internal class Program
                 Console.WriteLine("\nVALOR FIXO NO TÊNIS E MEIAS: R$10,00");
             }
 
+        }
+    }
+    public static void PrintOnlyTrack()
+    {
+        List<Pista> track = new();
+
+        string query = @"
+        SELECT
+            idPista,
+            status
+        FROM Pista";
+
+        using (SqlDataReader reader = DatabaseHelper.ExecuteReader(query, cmd => { }))
+        {
+            while (reader.Read())
+            {
+                Pista pista = new Pista
+                {
+                    idPista = Convert.ToInt32(reader["idPista"]),
+                    Status = Convert.ToBoolean(reader["Status"])
+                };
+                track.Add(pista);
+            }
+        }
+
+        foreach (var t in track)
+        {
+            if (t.Status is false)
+            {
+                Console.WriteLine(t);
+            }
         }
     }
     public static void CreateUser()
@@ -715,7 +823,7 @@ internal class Program
         Thread.Sleep(1000);
         Console.Clear();
     }
-    static void SelectUserOption()
+    public static void SelectUserOption()
     {
         while (true)
         {
@@ -1216,7 +1324,7 @@ public class Pista
 }
 public static class DatabaseHelper
 {
-    private static readonly string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
+    private static readonly string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
 
     public static SqlConnection GetConnection()
     {
@@ -1270,24 +1378,21 @@ public class PricingCalculator
     private static readonly TimeSpan EveningStart = new TimeSpan(17, 0, 0);
     private static readonly TimeSpan EndTime = new TimeSpan(22, 0, 0);
 
-    // Preços para Segunda a Quinta-feira
     private static readonly decimal DayRateWeekday = 100.00m;
     private static readonly decimal EveningRateWeekday = 120.00m;
 
-    // Preços para Sexta-feira a Domingo
     private static readonly decimal DayRateWeekend = 110.00m;
     private static readonly decimal EveningRateWeekend = 130.00m;
 
     // Adicional por minuto
     private static readonly decimal AdditionalMinuteCharge = 1.00m;
 
+    //Esse abaixo cálcula o valor total do tempo com o produto pedido:
     public static decimal CalculateTotalPrice(DateTime startTime, DateTime endTime, decimal productTotal)
     {
-        // Calcula o valor do tempo
         var duration = endTime - startTime;
         decimal timeCharge = CalculateTimeCharge(startTime, endTime);
 
-        // Calcula o total
         return timeCharge + productTotal;
     }
 
@@ -1326,7 +1431,7 @@ public class PricingCalculator
                 }
             }
 
-            // Move para o próximo intervalo
+            // Move para o próximo horário
             currentStart = currentStart.Date + (currentTime < EveningStart ? EveningStart : EndTime);
 
             // Adiciona cobrança adicional se estiver passando do horário final
