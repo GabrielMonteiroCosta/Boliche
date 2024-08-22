@@ -1,6 +1,5 @@
 use Boliche
-drop table Clientes
-drop table Fila
+
 create table Clientes
 (
 	id int not null primary key,
@@ -9,8 +8,6 @@ create table Clientes
 	status bit not null,
 	telefone varchar(20) null,
 	historico int not null)
-
-drop table Produtos
  
 declare @id int = (select isnull(max(id)+1,1) from Clientes)
 declare @nome varchar(100)
@@ -18,24 +15,6 @@ declare @CPF varchar (11)
 declare @status bit
 declare @telefone varchar(20)
 declare @historico int
-
-insert into Clientes
-(
-	nome,
-	CPF,
-	status,
-	telefone, 
-	id,
-	historico
-)
-values 
-(
-	@nome, @CPF, @status, @telefone, @id, @historico
-);
-
-
-
-delete from Clientes where id = '6'
  
 create table Produtos 
 (
@@ -52,31 +31,12 @@ declare @descricao varchar(100)
 declare @quantidade int
 declare @precoVenda smallmoney
 
-delete from Produtos
-
-insert into Produtos
-(
-	idItem,
-	Descricao,
-	Quantidade,
-	PrecoVenda
-)
-values 
-(
-	@IdItem,
-	@descricao,
-	@quantidade,
-	@precoVenda
-);
-
-
 CREATE TABLE Pista (
 	idPista int,
 	status bit not null,
 	HorarioEntrada datetime,
 	HorarioSaida datetime,
 	idUser int foreign key references Clientes(id)
-	histUser int foreign key references Clientes(historico)
 );
 INSERT INTO Pista (idPista, status)
 VALUES (@idPista, @status);
@@ -90,11 +50,6 @@ declare @idPista int = '6'
 declare @horarioEntrada datetime
 declare @horarioSaida datetime
 declare @idUser int
-
-select * from FilaEspera
-select * from Clientes
-select * from Produtos
-select * from Pista
                      
 CREATE TABLE filaEspera (
     idFila int identity primary key,
@@ -102,12 +57,15 @@ CREATE TABLE filaEspera (
     dataInsercao datetime default GETDATE()
 );
 
-CREATE TABLE PedidoPista (
-	idPista int not null,
-	idItem int not null,
-	quantidadePedido int not null,
-	valorTotal smallMoney not null,
-	);
+	CREATE TABLE PedidoPista (
+		idPista int not null,
+		idItem int not null,
+		quantidadePedido int not null,
+		valorTotal smallMoney not null,
+		valorHorario smallMoney,
+		);
 
-
-	Select * from PedidoPista
+	drop table PedidoPista
+select * from Pista
+select * from PedidoPista
+select * from filaEspera
