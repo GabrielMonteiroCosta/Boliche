@@ -10,13 +10,14 @@ using Spectre.Console.Cli;
 using System.Data.SqlClient;
 using System.Numerics;
 using System.Data;
+using System.Runtime.CompilerServices;
 
 
 //todo: Finalizar a parte da fila, começar a parte de cálculo de Tempo que cada cliente fica junto com as coisas que ele pediu no inicio
 //-> somar e trazer a finalização. o Histórico do cliete precisa ser finalizado pois nõ está somando assim não pode ser aplicado descontos
 internal class Program
 {
-    const string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
+    const string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
     private static void Main(string[] args)
     {
         List<Users> clientes = new();
@@ -24,6 +25,23 @@ internal class Program
         List<Fila> fila = new();
         List<int> pista = new List<int>();
 
+        static void CheckTime()
+        {
+            DateTime horaAtual = DateTime.Now;
+            var day = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                .Title("Qual é o dia da semana? ")
+                .PageSize(10)
+                .MoreChoicesText("[grey](Selecione o dia: )[/]")
+                .AddChoices(new[]
+                {
+                "Segunda-Feira", "Terça-Feira", "Quarta-Feira", "Quinta-Feira", "Sexta-Feira", "Sábado", "Domingo"
+                }));
+
+            Console.WriteLine($"Hoje é dia [{horaAtual}] [{day}]");
+        }
+
+        CheckTime();
         while (true)
         {
             Console.WriteLine("\nBem-Vindo ao Gaboliche!" +
@@ -45,7 +63,7 @@ internal class Program
                 case "2": SelectUserOption(); break;
                 case "3": SelectProductOption(); break;
                 case "4": PrintLists(); break;
-                case "5": RemoveFromTrack(); break;
+                case "5": EndGame(); break;
                 case "6": CreateTrack(); break;
                 case "7": InsertToOrder(); break;
                 case "0": Console.WriteLine("Encerrando o programa..."); return;
@@ -401,8 +419,9 @@ internal class Program
             }
         }
     }
-    static void RemoveFromTrack()
+    static void EndGame()
     {
+
         PrintOnlyTrack();
 
         Console.WriteLine("(PISTAS LIVRES NÃO APARECEM AQUI)");
@@ -445,40 +464,43 @@ internal class Program
                     Console.WriteLine("Ocorreu um erro ao registrar a saída: " + ex.Message);
                 }
             }
+            var payment = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("--PAGAMENTO--" +
+                        "\nDigite a Forma para o pagamento: ")
+                        .PageSize(10)
+                        .MoreChoicesText("[grey](Selecione a opção desejada: )[/]")
+                        .AddChoices(new[]
+                        {
+                        "Cartão de Crédito","Cartão de Débito","Dinheiro","PIX"
+                        })
+                );
+            AnsiConsole.WriteLine("A forma de pagamento seleciona foi: ", payment);
+            var convertEntrance = SelectPista().HorarioEntrada;
+            var convertExit = SelectPista().HorarioSaida;
+            var timeEntrance = TimeSpan.Parse(convertEntrance.ToString());
+            var timeExit = TimeSpan.Parse(convertExit.ToString());
+
+            var sumTime = timeExit - timeEntrance;
+            Console.WriteLine("Soma: ", sumTime);
+
+            SelectPista();
+
+            DatabaseHelper.ExecuteCommand(cmd =>
+    {
+        cmd.CommandText = @"SELECT HorarioEntrada, HorarioSaida from Pista;
+                                 SELECT idPista, valorTotal from PedidoPista;";
+
+    });
         }
         else
         {
             Console.WriteLine("ID da pista inválido.");
         }
     }
+
     static void Checks()
     {
-        static void CheckTime()
-        {
-            var day = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                .Title("Qual é o dia da semana? ")
-                .PageSize(10)
-                .MoreChoicesText("[grey](Selecione o dia: )[/]")
-                .AddChoices(new[]
-                {
-                "Segunda-Feira", "Terça-Feira", "Quarta-Feira", "Quinta-Feira", "Sexta-Feira", "Sábado", "Domingo"
-                }));
-
-            DateTime horaAtual = DateTime.Now;
-            Console.WriteLine($"Hoje é dia [{horaAtual}] [{day}]");
-
-        }
-
-        CheckTime();
-
-        Console.WriteLine("Quantas horas você deseja jogar?");
-        if (!int.TryParse(Console.ReadLine(), out int horas))
-        {
-            Console.WriteLine("Entrada inválida para horas.");
-            return;
-        }
-
         Console.WriteLine("Quantas pessoas irão participar? ");
         while (true)
         {
@@ -517,6 +539,24 @@ internal class Program
             break;
         }
 
+        var productInsert = AnsiConsole.Prompt(
+    new SelectionPrompt<string>()
+        .Title("Você deseja inserir algum produto ao seu cesto agora?")
+        .PageSize(10)
+        .MoreChoicesText("[grey](Selecione a opção desejada: )[/]")
+        .AddChoices(new[]
+        {
+                "Inserir",
+                "Não inserir",
+                "Voltar"
+        })
+    );
+        switch (productInsert)
+        {
+            case "Inserir": ListProduct(); break;
+            case "Não inserir": break;
+            case "Voltar": return;
+        }
         static void DiscountByPeople(int participantes)
         {
             if (participantes <= 5 && participantes > 0)
@@ -547,11 +587,11 @@ internal class Program
             }
         }
 
-        // Após a seleção de tempo, podemos calcular o valor com base na quantidade de horas e no dia selecionado
-        DateTime endTime = DateTime.Now.AddHours(horas);
-        decimal totalValue = PricingCalculator.CalculateTotalPrice(DateTime.Now, endTime, 0); // Aqui, 0 pode ser substituído pelo valor total dos produtos
+        //DateTime endTime = DateTime.Now.AddHours(horas);
+        //decimal totalValue = PricingCalculator.CalculateTotalPrice(DateTime.Now, endTime, 0); // todo: o 0 vai ser o valor dos produtos
 
-        Console.WriteLine($"Valor total calculado: R${totalValue:F2}");
+        //Console.WriteLine($"Valor total calculado: R${totalValue:F2}");
+        Thread.Sleep(3000);
     }
     public static string? CreateCPF()
     {
@@ -1326,6 +1366,24 @@ internal class Program
 
         return user;
     }
+    static Pista SelectPista()
+    {
+        string query = "Select idPista, HorarioEntrada, HorarioSaida, Status from Pista";
+        using (SqlDataReader reader = DatabaseHelper.ExecuteReader(query, cmd => { }))
+        {
+            while (reader.Read())
+            {
+                return new Pista
+                {
+                    idPista = Convert.ToInt32(reader["idPista"]),
+                    HorarioEntrada = Convert.ToDateTime(reader["horarioEntrada"]),
+                    HorarioSaida = Convert.ToDateTime(reader["horarioSaida"]),
+                    Status = Convert.ToBoolean(reader["status"]),
+                };
+            }
+        }
+        return null;
+    }
 }
 public class Users
 {
@@ -1376,7 +1434,8 @@ public class Pista
 {
     public int idPista { get; set; }
     public bool Status { get; set; }
-
+    public DateTime HorarioEntrada { get; set; }
+    public DateTime HorarioSaida { get; set; }
     public override string ToString()
     {
         return $"\nPista Número: {idPista}" +
@@ -1385,7 +1444,7 @@ public class Pista
 }
 public static class DatabaseHelper
 {
-    private static readonly string connectionString = "Server=DESKTOP-UFKML55;Database=Boliche1;User Id=sa;Password=Vector5**;";
+    private static readonly string connectionString = "Server=DESKTOP-DB5M39P;Database=Boliche;User Id=sa;Password=Vector5**;";
 
     public static SqlConnection GetConnection()
     {
@@ -1492,14 +1551,14 @@ public class PricingCalculator
                 }
             }
 
-            // Move para o próximo horário
+            // faz o moviment para o próximo horário
             currentStart = currentStart.Date + (currentTime < EveningStart ? EveningStart : EndTime);
 
             // Adiciona cobrança adicional se estiver passando do horário final
             if (currentStart > endTime)
             {
                 var extraTime = endTime - (currentStart - (currentStart.Date + (currentTime < EveningStart ? EveningStart : EndTime)));
-                totalCharge += AdditionalMinuteCharge * (decimal)extraTime.Second;
+                totalCharge += AdditionalMinuteCharge * (decimal)extraTime.Minute;
             }
         }
 
